@@ -1,0 +1,8 @@
+{
+  "name": "RescueVision: Universal Medical Intelligence",
+  "description": "A high-fidelity medical intelligence platform powered by the Procedural Fidelity Scanning Network. Featuring real-time trauma guidance, advanced radiology diagnostics, and verification gating for clinical-grade precision in emergency scenarios.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
