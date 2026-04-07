@@ -820,9 +820,9 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
 
           {/* Bio-Digital Twin (BDTS) Visualization */}
           {predictiveAnalytics && (
-            <div className="absolute top-32 left-6 w-32 p-4 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-              <div className="text-[8px] font-mono text-emerald-400 uppercase tracking-widest mb-3">Bio-Digital Twin</div>
-              <div className="relative h-24 w-full flex items-center justify-center">
+            <div className="absolute top-24 md:top-32 left-4 md:left-6 w-24 md:w-32 p-2 md:p-4 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+              <div className="text-[6px] md:text-[8px] font-mono text-emerald-400 uppercase tracking-widest mb-2 md:mb-3">Bio-Digital Twin</div>
+              <div className="relative h-16 md:h-24 w-full flex items-center justify-center">
                 <svg viewBox="0 0 100 100" className="w-full h-full text-white/20">
                   <path d="M50 10 L50 90 M30 30 L70 30 M30 50 L70 50 M40 70 L60 70" stroke="currentColor" strokeWidth="2" fill="none" />
                   {predictiveAnalytics.organSystemRisk.map((risk, i) => (
@@ -839,9 +839,9 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
                   ))}
                 </svg>
               </div>
-              <div className="mt-2 space-y-1">
+              <div className="mt-1 md:mt-2 space-y-0.5 md:space-y-1">
                 {predictiveAnalytics.organSystemRisk.slice(0, 3).map((risk, i) => (
-                  <div key={i} className="flex justify-between text-[6px] font-mono uppercase">
+                  <div key={i} className="flex justify-between text-[5px] md:text-[6px] font-mono uppercase">
                     <span className="text-white/40">{risk.system}</span>
                     <span className={risk.riskLevel > 0.7 ? 'text-red-400' : 'text-emerald-400'}>{(risk.riskLevel * 100).toFixed(0)}%</span>
                   </div>
@@ -852,27 +852,27 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
 
           {/* Multi-Spectral HUD */}
           {multiSpectralAnalysis && (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 flex gap-4">
-              <div className="px-4 py-2 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
-                <span className="text-[8px] font-mono text-purple-400 uppercase tracking-widest">Spectral_Hypoxia: {(multiSpectralAnalysis.hypoxiaDetection * 100).toFixed(1)}%</span>
+            <div className="absolute top-4 md:top-6 left-1/2 -translate-x-1/2 flex flex-col md:flex-row gap-2 md:gap-4 w-full px-4 md:px-0 items-center">
+              <div className="px-3 md:px-4 py-1.5 md:py-2 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                <div className="w-1.5 md:w-2 h-1.5 md:h-2 rounded-full bg-purple-500 animate-pulse" />
+                <span className="text-[7px] md:text-[8px] font-mono text-purple-400 uppercase tracking-widest">Spectral_Hypoxia: {(multiSpectralAnalysis.hypoxiaDetection * 100).toFixed(1)}%</span>
               </div>
-              <div className="px-4 py-2 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                <span className="text-[8px] font-mono text-amber-400 uppercase tracking-widest">Tissue_Viability: {(multiSpectralAnalysis.tissueViability * 100).toFixed(1)}%</span>
+              <div className="px-3 md:px-4 py-1.5 md:py-2 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                <div className="w-1.5 md:w-2 h-1.5 md:h-2 rounded-full bg-amber-500 animate-pulse" />
+                <span className="text-[7px] md:text-[8px] font-mono text-amber-400 uppercase tracking-widest">Tissue_Viability: {(multiSpectralAnalysis.tissueViability * 100).toFixed(1)}%</span>
               </div>
             </div>
           )}
 
           {/* Predictive Survival Timeline */}
           {predictiveAnalytics && (
-            <div className="absolute bottom-32 right-6 w-48 p-4 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl">
-              <div className="text-[8px] font-mono text-blue-400 uppercase tracking-widest mb-2">Predictive Survival Timeline</div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] text-white/60">Survival Probability</span>
-                <span className="text-[10px] font-bold text-emerald-400">{predictiveAnalytics.survivalProbability}%</span>
+            <div className="absolute bottom-36 md:bottom-32 right-4 md:right-6 w-40 md:w-48 p-3 md:p-4 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl">
+              <div className="text-[7px] md:text-[8px] font-mono text-blue-400 uppercase tracking-widest mb-1 md:mb-2">Predictive Survival Timeline</div>
+              <div className="flex items-center justify-between mb-0.5 md:mb-1">
+                <span className="text-[8px] md:text-[10px] text-white/60">Survival Probability</span>
+                <span className="text-[8px] md:text-[10px] font-bold text-emerald-400">{predictiveAnalytics.survivalProbability}%</span>
               </div>
-              <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mb-3">
+              <div className="w-full h-1 md:h-1.5 bg-white/5 rounded-full overflow-hidden mb-2 md:mb-3">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${predictiveAnalytics.survivalProbability}%` }}
@@ -880,15 +880,15 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
                 />
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[8px] text-white/40 uppercase">Time to Criticality</span>
-                <span className="text-sm font-mono text-red-400 animate-pulse">{predictiveAnalytics.timeToCriticalityMin}m 00s</span>
+                <span className="text-[7px] md:text-[8px] text-white/40 uppercase">Time to Criticality</span>
+                <span className="text-xs md:text-sm font-mono text-red-400 animate-pulse">{predictiveAnalytics.timeToCriticalityMin}m 00s</span>
               </div>
             </div>
           )}
 
           {/* Spatial Triage Map (Mini Radar) */}
           {isMCIMode && spatialMap.length > 0 && (
-            <div className="absolute top-32 right-6 w-24 h-24 rounded-full bg-black/40 backdrop-blur-md border border-white/10 overflow-hidden">
+            <div className="absolute top-24 md:top-32 right-4 md:right-6 w-20 md:w-24 h-20 md:h-24 rounded-full bg-black/40 backdrop-blur-md border border-white/10 overflow-hidden">
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-full h-0.5 bg-white/5" />
                 <div className="h-full w-0.5 bg-white/5" />
@@ -1146,10 +1146,10 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
       <AnimatePresence>
         {showRadiologyTrainer && radiologyResult && (
           <motion.div 
-            initial={{ opacity: 0, x: 300 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 300 }}
-            className="fixed top-32 right-6 w-80 bg-zinc-900/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 z-[400] shadow-2xl overflow-y-auto max-h-[70vh]"
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            className="fixed bottom-0 left-0 right-0 md:top-32 md:right-6 md:left-auto md:bottom-auto md:w-80 bg-zinc-900/95 backdrop-blur-2xl border-t md:border border-white/10 rounded-t-[2.5rem] md:rounded-3xl p-6 z-[400] shadow-2xl overflow-y-auto max-h-[80vh] md:max-h-[70vh]"
           >
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-bold text-white uppercase tracking-widest">Radiology Trainer</h3>

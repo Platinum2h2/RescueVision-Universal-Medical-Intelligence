@@ -97,32 +97,32 @@ export const StepRunner: React.FC<StepRunnerProps> = ({ data, closeupImage, onCl
   return (
     <div className="absolute inset-0 bg-[#050505] z-50 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="p-6 border-b border-white/10 flex justify-between items-center bg-black/50 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+      <div className="p-4 md:p-6 border-b border-white/10 flex justify-between items-center bg-black/50 backdrop-blur-xl shrink-0">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
             <Activity className="w-4 h-4 text-emerald-400" />
           </div>
-          <div>
-            <h2 className="text-white text-sm font-medium tracking-tight">{data.diagnosis}</h2>
-            <div className="flex items-center gap-2">
-              <p className="text-white/40 text-[10px] uppercase tracking-widest font-mono">
-                Aegis Quantum v2.1 // Step {currentStepIndex + 1} of {data.steps.length}
+          <div className="min-w-0">
+            <h2 className="text-white text-xs md:text-sm font-medium tracking-tight truncate">{data.diagnosis}</h2>
+            <div className="flex items-center gap-1 md:gap-2">
+              <p className="text-white/40 text-[8px] md:text-[10px] uppercase tracking-widest font-mono truncate">
+                Step {currentStepIndex + 1}/{data.steps.length}
               </p>
               <div className="w-px h-2 bg-white/10" />
-              <p className="text-emerald-400/60 text-[10px] uppercase tracking-widest font-mono">
-                AI Confidence: {data.confidence}%
+              <p className="text-emerald-400/60 text-[8px] md:text-[10px] uppercase tracking-widest font-mono truncate">
+                {data.confidence}% Conf.
               </p>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4 shrink-0">
           <button 
             onClick={triggerEMS}
-            className="px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-full text-[10px] font-mono text-red-400 uppercase tracking-widest hover:bg-red-500/20 transition-colors"
+            className="px-3 md:px-4 py-1.5 md:py-2 bg-red-500/10 border border-red-500/30 rounded-full text-[8px] md:text-[10px] font-mono text-red-400 uppercase tracking-widest hover:bg-red-500/20 transition-colors whitespace-nowrap"
           >
-            Escalate to EMS
+            EMS
           </button>
-          <button onClick={onClose} className="text-white/40 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-white/40 hover:text-white transition-colors p-1">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -130,7 +130,7 @@ export const StepRunner: React.FC<StepRunnerProps> = ({ data, closeupImage, onCl
 
       <div className="flex-1 relative overflow-hidden flex flex-col">
         {/* Visual Reference (Closeup Image) */}
-        <div className="relative h-1/2 bg-black overflow-hidden border-b border-white/10 shrink-0">
+        <div className="relative h-2/5 md:h-1/2 bg-black overflow-hidden border-b border-white/10 shrink-0">
           <img 
             src={mode === 'VERIFYING' && verificationImage ? verificationImage : closeupImage} 
             alt="Reference" 
@@ -254,7 +254,7 @@ export const StepRunner: React.FC<StepRunnerProps> = ({ data, closeupImage, onCl
         </div>
 
         {/* Interaction Area */}
-        <div className="flex-1 bg-[#0A0A0A] flex flex-col p-6 overflow-y-auto">
+        <div className="flex-1 bg-[#0A0A0A] flex flex-col p-4 md:p-6 overflow-y-auto">
           <AnimatePresence mode="wait">
             {mode === 'INSTRUCTION' && (
               <motion.div 
@@ -265,38 +265,38 @@ export const StepRunner: React.FC<StepRunnerProps> = ({ data, closeupImage, onCl
                 className="flex-1 flex flex-col"
               >
                 <div className="flex-1">
-                  <div className="mb-8">
-                    <span className="text-emerald-400 font-mono text-[10px] uppercase tracking-[0.2em]">Current Task</span>
-                    <h3 className="text-2xl text-white font-light mt-2 leading-tight">
+                  <div className="mb-6 md:mb-8">
+                    <span className="text-emerald-400 font-mono text-[8px] md:text-[10px] uppercase tracking-[0.2em]">Current Task</span>
+                    <h3 className="text-lg md:text-2xl text-white font-light mt-2 leading-tight">
                       <Markdown>{currentStep}</Markdown>
                     </h3>
                   </div>
 
                   {data.warnings.length > 0 && currentStepIndex === 0 && (
-                    <div className="p-4 bg-red-400/5 border border-red-400/20 rounded-xl mb-8">
+                    <div className="p-3 md:p-4 bg-red-400/5 border border-red-400/20 rounded-xl mb-6 md:mb-8">
                       <div className="flex items-center gap-2 text-red-400 mb-2">
-                        <AlertTriangle className="w-4 h-4" />
-                        <span className="font-mono text-[10px] uppercase tracking-widest">Safety Warning</span>
+                        <AlertTriangle className="w-3 md:w-4 h-3 md:h-4" />
+                        <span className="font-mono text-[8px] md:text-[10px] uppercase tracking-widest">Safety Warning</span>
                       </div>
-                      <p className="text-red-200/60 text-xs">{data.warnings[0]}</p>
+                      <p className="text-red-200/60 text-[10px] md:text-xs">{data.warnings[0]}</p>
                     </div>
                   )}
 
                   <button 
                     onClick={() => setIsChecked(!isChecked)}
                     className={cn(
-                      "w-full p-6 rounded-2xl border transition-all flex items-center gap-4 group",
+                      "w-full p-4 md:p-6 rounded-2xl border transition-all flex items-center gap-3 md:gap-4 group",
                       isChecked ? "bg-emerald-500/10 border-emerald-500/40" : "bg-white/5 border-white/10 hover:border-white/20"
                     )}
                   >
                     <div className={cn(
-                      "w-6 h-6 rounded-md border flex items-center justify-center transition-colors",
+                      "w-5 md:w-6 h-5 md:h-6 rounded-md border flex items-center justify-center transition-colors shrink-0",
                       isChecked ? "bg-emerald-500 border-emerald-500" : "border-white/20"
                     )}>
-                      {isChecked && <CheckCircle2 className="w-4 h-4 text-black" />}
+                      {isChecked && <CheckCircle2 className="w-3 md:w-4 h-3 md:h-4 text-black" />}
                     </div>
                     <span className={cn(
-                      "text-sm font-medium transition-colors",
+                      "text-xs md:text-sm font-medium transition-colors text-left",
                       isChecked ? "text-emerald-400" : "text-white/60"
                     )}>
                       I have completed this step
@@ -304,17 +304,19 @@ export const StepRunner: React.FC<StepRunnerProps> = ({ data, closeupImage, onCl
                   </button>
                 </div>
 
-                <button
-                  disabled={!isChecked}
-                  onClick={handleNext}
-                  className={cn(
-                    "w-full py-5 rounded-xl font-bold uppercase tracking-[0.2em] text-xs transition-all flex items-center justify-center gap-2",
-                    isChecked ? "bg-white text-black" : "bg-white/5 text-white/20 cursor-not-allowed"
-                  )}
-                >
-                  Verify with Photo
-                  <Camera className="w-4 h-4" />
-                </button>
+                <div className="mt-6">
+                  <button
+                    disabled={!isChecked}
+                    onClick={handleNext}
+                    className={cn(
+                      "w-full py-4 md:py-5 rounded-xl font-bold uppercase tracking-[0.2em] text-[10px] md:text-xs transition-all flex items-center justify-center gap-2",
+                      isChecked ? "bg-white text-black" : "bg-white/5 text-white/20 cursor-not-allowed"
+                    )}
+                  >
+                    Verify with Photo
+                    <Camera className="w-4 h-4" />
+                  </button>
+                </div>
               </motion.div>
             )}
 

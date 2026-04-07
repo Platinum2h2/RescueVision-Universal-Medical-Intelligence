@@ -2,9 +2,11 @@
 
 @layer base {
   html, body, #root {
-    @apply h-full overflow-hidden bg-black;
+    @apply h-full bg-black;
+    min-height: 100dvh;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
+    overflow-x: hidden;
   }
 
   /* Custom scrollbar for mobile feel */

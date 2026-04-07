@@ -130,71 +130,71 @@ export const BenchmarkTest: React.FC = () => {
   };
 
   return (
-    <div className="p-8 bg-gray-900 text-white min-h-screen">
-      <h1 className="text-3xl font-bold mb-8">RescueVision Live Benchmark</h1>
+    <div className="p-4 md:p-8 bg-gray-900 text-white min-h-screen">
+      <h1 className="text-xl md:text-3xl font-bold mb-6 md:mb-8">RescueVision Live Benchmark</h1>
       <button 
         onClick={runLargeBenchmark}
         disabled={loading}
-        className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 mb-8"
+        className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 mb-8 text-sm md:text-base"
       >
         {loading ? "Running Benchmark..." : "Run Live Performance Test"}
       </button>
 
       {error && (
-        <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm">
+        <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-xs md:text-sm">
           {error}
         </div>
       )}
 
       {loading && (
         <div className="mb-8 space-y-4">
-          <div className="flex justify-between text-sm text-gray-400">
+          <div className="flex justify-between text-[10px] md:text-sm text-gray-400">
             <span>Processing Samples...</span>
             <span>{progress.current} / {progress.total}</span>
           </div>
-          <div className="w-full h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
+          <div className="w-full h-3 md:h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
             <div 
               className="h-full bg-blue-500 transition-all duration-300 ease-out"
               style={{ width: `${(progress.current / progress.total) * 100}%` }}
             />
           </div>
-          <p className="text-xs text-gray-500 italic">
-            Note: Running 50 sequential AI calls. This will take approximately 2-3 minutes.
+          <p className="text-[10px] text-gray-500 italic">
+            Note: Running sequential AI calls. This will take a few minutes.
           </p>
         </div>
       )}
 
       {results && (
-        <div className="mt-12 space-y-6 bg-gray-800 p-8 rounded-xl border border-gray-700">
-          <h2 className="text-2xl font-semibold">Final Actual Metrics</h2>
-          <div className="grid grid-cols-2 gap-8">
-            <div>
-              <p className="text-gray-400">Sample Size (n)</p>
-              <p className="text-3xl font-bold">{results.n}</p>
+        <div className="mt-8 md:mt-12 space-y-6 bg-gray-800 p-4 md:p-8 rounded-xl border border-gray-700">
+          <h2 className="text-lg md:text-2xl font-semibold">Final Actual Metrics</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8">
+            <div className="p-3 bg-black/20 rounded-lg">
+              <p className="text-gray-400 text-[10px] md:text-xs uppercase">Sample Size (n)</p>
+              <p className="text-xl md:text-3xl font-bold">{results.n}</p>
             </div>
-            <div>
-              <p className="text-gray-400">RescueVision Mean Accuracy</p>
-              <p className="text-3xl font-bold text-green-400">{results.mean.toFixed(2)}%</p>
+            <div className="p-3 bg-black/20 rounded-lg">
+              <p className="text-gray-400 text-[10px] md:text-xs uppercase">Mean Accuracy</p>
+              <p className="text-xl md:text-3xl font-bold text-green-400">{results.mean.toFixed(2)}%</p>
             </div>
-            <div>
-              <p className="text-gray-400">Baseline Mean Accuracy</p>
-              <p className="text-3xl font-bold text-gray-500">{results.baselineMean.toFixed(2)}%</p>
+            <div className="p-3 bg-black/20 rounded-lg">
+              <p className="text-gray-400 text-[10px] md:text-xs uppercase">Baseline Mean</p>
+              <p className="text-xl md:text-3xl font-bold text-gray-500">{results.baselineMean.toFixed(2)}%</p>
             </div>
-            <div>
-              <p className="text-gray-400">Standard Deviation</p>
-              <p className="text-3xl font-bold">{results.stdDev.toFixed(2)}%</p>
+            <div className="p-3 bg-black/20 rounded-lg">
+              <p className="text-gray-400 text-[10px] md:text-xs uppercase">Std Deviation</p>
+              <p className="text-xl md:text-3xl font-bold">{results.stdDev.toFixed(2)}%</p>
             </div>
-            <div>
-              <p className="text-gray-400">T-Score</p>
-              <p className="text-3xl font-bold text-blue-400">{results.tScore.toFixed(4)}</p>
+            <div className="p-3 bg-black/20 rounded-lg">
+              <p className="text-gray-400 text-[10px] md:text-xs uppercase">T-Score</p>
+              <p className="text-xl md:text-3xl font-bold text-blue-400">{results.tScore.toFixed(4)}</p>
             </div>
-            <div>
-              <p className="text-gray-400">Calculated p-value</p>
-              <p className="text-3xl font-bold text-purple-400">{results.pValue}</p>
+            <div className="p-3 bg-black/20 rounded-lg">
+              <p className="text-gray-400 text-[10px] md:text-xs uppercase">p-value</p>
+              <p className="text-xl md:text-3xl font-bold text-purple-400">{results.pValue}</p>
             </div>
           </div>
-          <div className="mt-8 pt-8 border-t border-gray-700">
-            <p className="text-xl">
+          <div className="mt-4 md:mt-8 pt-4 md:pt-8 border-t border-gray-700">
+            <p className="text-sm md:text-xl leading-relaxed">
               <span className="font-bold">Conclusion:</span> The null hypothesis is REJECTED. 
               RescueVision shows a statistically significant improvement over the baseline (p {results.pValue}).
             </p>
