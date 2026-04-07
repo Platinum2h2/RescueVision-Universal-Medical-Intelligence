@@ -95,7 +95,7 @@ export const StepRunner: React.FC<StepRunnerProps> = ({ data, closeupImage, onCl
   };
 
   return (
-    <div className="fixed inset-0 bg-[#050505] z-50 flex flex-col">
+    <div className="absolute inset-0 bg-[#050505] z-50 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="p-6 border-b border-white/10 flex justify-between items-center bg-black/50 backdrop-blur-xl">
         <div className="flex items-center gap-3">
@@ -128,9 +128,9 @@ export const StepRunner: React.FC<StepRunnerProps> = ({ data, closeupImage, onCl
         </div>
       </div>
 
-      <div className="flex-1 relative overflow-hidden flex flex-col md:flex-row">
+      <div className="flex-1 relative overflow-hidden flex flex-col">
         {/* Visual Reference (Closeup Image) */}
-        <div className="relative flex-1 bg-black overflow-hidden border-r border-white/10">
+        <div className="relative h-1/2 bg-black overflow-hidden border-b border-white/10 shrink-0">
           <img 
             src={mode === 'VERIFYING' && verificationImage ? verificationImage : closeupImage} 
             alt="Reference" 
@@ -180,18 +180,16 @@ export const StepRunner: React.FC<StepRunnerProps> = ({ data, closeupImage, onCl
           </div>
 
           {/* Research Mode Overlay (Internal Metrics) */}
-          <div className="absolute bottom-6 left-6 flex flex-col gap-2">
+          <div className="absolute bottom-4 left-4 flex flex-col gap-2">
             <button 
               onClick={() => setShowResearchDashboard(!showResearchDashboard)}
-              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 rounded-lg text-[8px] font-mono text-white/60 uppercase tracking-widest transition-colors"
+              className="px-2 py-1 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 rounded-lg text-[7px] font-mono text-white/60 uppercase tracking-widest transition-colors"
             >
-              {showResearchDashboard ? 'Hide Research Data' : 'Show Research Data'}
+              {showResearchDashboard ? 'Hide Data' : 'Show Data'}
             </button>
-            <div className="p-4 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl font-mono text-[8px] text-white/40 space-y-1">
-              <p>MODEL: AEGIS_QUANTUM_V2.1</p>
+            <div className="p-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg font-mono text-[7px] text-white/40 space-y-0.5">
+              <p>MODEL: AEGIS_Q_V2.1</p>
               <p>LATENCY: 0.8s</p>
-              <p>SPATIAL_ERROR: 1.2%</p>
-              <p>PREDICTIVE_TAU: 0.18</p>
             </div>
           </div>
 
@@ -199,58 +197,53 @@ export const StepRunner: React.FC<StepRunnerProps> = ({ data, closeupImage, onCl
           <AnimatePresence>
             {showResearchDashboard && (
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="absolute inset-6 bg-black/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-6 overflow-y-auto z-20"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="absolute inset-4 bg-black/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 overflow-y-auto z-50 shadow-2xl"
               >
-                <div className="flex justify-between items-center mb-6">
-                  <h4 className="text-white font-mono text-[10px] uppercase tracking-[0.2em]">Research Fidelity Dashboard</h4>
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-white font-mono text-[8px] uppercase tracking-[0.2em]">Research Fidelity</h4>
                   <button onClick={() => setShowResearchDashboard(false)} className="text-white/40 hover:text-white">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-8">
-                  <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                    <p className="text-white/40 text-[8px] uppercase mb-2">Ablation Study: Gating Impact</p>
-                    <div className="h-24 flex items-end gap-2">
-                      <div className="flex-1 bg-emerald-500/20 border border-emerald-500/40 h-[89%] rounded-t-sm relative group">
-                        <div className="absolute -top-4 left-0 w-full text-center text-[8px] text-emerald-400">89%</div>
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                    <p className="text-white/40 text-[6px] uppercase mb-2">Gating Impact</p>
+                    <div className="h-16 flex items-end gap-1">
+                      <div className="flex-1 bg-emerald-500/20 border border-emerald-500/40 h-[89%] rounded-t-sm relative">
+                        <div className="absolute -top-3 left-0 w-full text-center text-[6px] text-emerald-400">89%</div>
                       </div>
-                      <div className="flex-1 bg-red-500/20 border border-red-500/40 h-[54%] rounded-t-sm relative group">
-                        <div className="absolute -top-4 left-0 w-full text-center text-red-400">54%</div>
+                      <div className="flex-1 bg-red-500/20 border border-red-500/40 h-[54%] rounded-t-sm relative">
+                        <div className="absolute -top-3 left-0 w-full text-center text-[6px] text-red-400">54%</div>
                       </div>
-                    </div>
-                    <div className="flex justify-between mt-2 text-[6px] text-white/20 uppercase">
-                      <span>With Gating</span>
-                      <span>No Gating</span>
                     </div>
                   </div>
-                  <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                    <p className="text-white/40 text-[8px] uppercase mb-2">Uncertainty Distribution (Entropy)</p>
-                    <div className="h-24 flex items-center justify-center">
-                      <div className="w-16 h-16 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
-                        <div className="w-8 h-8 rounded-full bg-blue-500/20 animate-pulse" />
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                    <p className="text-white/40 text-[6px] uppercase mb-2">Entropy H(x)</p>
+                    <div className="h-16 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full border border-dashed border-white/10 flex items-center justify-center">
+                        <div className="w-6 h-6 rounded-full bg-blue-500/20 animate-pulse" />
                       </div>
                     </div>
-                    <p className="text-center text-[6px] text-white/20 mt-2">H(x) = 0.42 bits</p>
+                    <p className="text-center text-[6px] text-white/20 mt-1">0.42 bits</p>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-white/40 text-[8px] uppercase mb-2">FMEA: Failure Mode Analysis</p>
+                <div className="space-y-1.5">
+                  <p className="text-white/40 text-[6px] uppercase mb-1">Failure Mode Analysis</p>
                   {[
-                    { mode: 'False Positive Verification', sev: 9, prob: 2, det: 8 },
-                    { mode: 'VLM Hallucination', sev: 8, prob: 3, det: 7 },
-                    { mode: 'Geometric Drift', sev: 4, prob: 6, det: 9 }
+                    { mode: 'False Positive', sev: 9, prob: 2 },
+                    { mode: 'Hallucination', sev: 8, prob: 3 },
+                    { mode: 'Geometric Drift', sev: 4, prob: 6 }
                   ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/5 text-[8px] font-mono">
+                    <div key={i} className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/5 text-[7px] font-mono">
                       <span className="text-white/60">{item.mode}</span>
-                      <div className="flex gap-3">
+                      <div className="flex gap-2">
                         <span className="text-red-400">S:{item.sev}</span>
                         <span className="text-orange-400">P:{item.prob}</span>
-                        <span className="text-emerald-400">D:{item.det}</span>
                       </div>
                     </div>
                   ))}
@@ -261,7 +254,7 @@ export const StepRunner: React.FC<StepRunnerProps> = ({ data, closeupImage, onCl
         </div>
 
         {/* Interaction Area */}
-        <div className="w-full md:w-[450px] bg-[#0A0A0A] flex flex-col p-8">
+        <div className="flex-1 bg-[#0A0A0A] flex flex-col p-6 overflow-y-auto">
           <AnimatePresence mode="wait">
             {mode === 'INSTRUCTION' && (
               <motion.div 

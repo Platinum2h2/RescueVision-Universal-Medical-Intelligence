@@ -1,8 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Mic, MicOff, Activity, Loader2, Volume2, Camera, FileText, Users, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
-import { analyzeLiveFrame, analyzeRadiology, getRadiologyDeviceGuidance } from '../services/gemini';
+import { X, Mic, MicOff, Activity, Loader2, Volume2, Camera, FileText, Users, AlertTriangle, CheckCircle2, Info, Key } from 'lucide-react';
+import { analyzeLiveFrame, analyzeRadiology, getRadiologyDeviceGuidance, generateSpeech } from '../services/gemini';
 import { cn } from '../lib/utils';
+
+declare global {
+  interface Window {
+    aistudio?: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
 
 // AR Human Pose Definitions
 const AR_HUMAN_POSES: Record<string, { svg: string; label: string }> = {
@@ -85,7 +94,7 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [lastQuestion, setLastQuestion] = useState<string | null>(null);
   const [questionCount, setQuestionCount] = useState(0);
-  const [isActive, setIsActive] = useState(true);
+  const [isActive, setIsActive] = useState(false);
   const [isScanningVitals, setIsScanningVitals] = useState(false);
   const [heartRate, setHeartRate] = useState<number | null>(null);
   const [isMCIMode, setIsMCIMode] = useState(false);
@@ -97,6 +106,19 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
   const [hapticPattern, setHapticPattern] = useState<'cpr' | 'pressure' | 'steady' | 'rhythmic_breathing' | null>(null);
   const [showMSR, setShowMSR] = useState(false);
   const [showRadiologyTrainer, setShowRadiologyTrainer] = useState((window as any).isRadiologyTraining || false);
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
+  const [hasPaidKey, setHasPaidKey] = useState(false);
+
+  useEffect(() => {
+    const checkKey = async () => {
+      if (window.aistudio?.hasSelectedApiKey) {
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        setHasPaidKey(hasKey);
+      }
+    };
+    checkKey();
+  }, []);
+
   const [diagnosis, setDiagnosis] = useState<string>('');
   const [severity, setSeverity] = useState<'low' | 'medium' | 'high' | 'critical'>('low');
   const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
@@ -145,6 +167,70 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
   const recognitionRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const synthRef = useRef<SpeechSynthesis>(window.speechSynthesis);
+  const utterancesRef = useRef<SpeechSynthesisUtterance[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+
+  const speak = async (text: string) => {
+    if (!text || !isActiveRef.current) return;
+    console.log('UMI Speaking:', text);
+    
+    // Stop any current speech
+    if (synthRef.current.speaking) synthRef.current.cancel();
+    if (currentSourceRef.current) {
+      try {
+        currentSourceRef.current.stop();
+      } catch (e) {}
+    }
+    
+    try {
+      console.log('Attempting Gemini TTS...');
+      const base64Audio = await generateSpeech(text);
+      if (base64Audio) {
+        console.log('Gemini TTS successful, playing via AudioContext');
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        }
+        
+        const audioContext = audioContextRef.current;
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
+
+        const binaryString = atob(base64Audio);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        // Ensure even number of bytes for Int16Array
+        const pcmLength = Math.floor(bytes.length / 2);
+        const int16 = new Int16Array(bytes.buffer, 0, pcmLength);
+        const float32 = new Float32Array(int16.length);
+        for (let i = 0; i < int16.length; i++) {
+          float32[i] = int16[i] / 32768.0;
+        }
+        
+        const buffer = audioContext.createBuffer(1, float32.length, 24000);
+        buffer.getChannelData(0).set(float32);
+        
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start();
+        currentSourceRef.current = source;
+        console.log('Audio playback started');
+      } else {
+        console.warn('Gemini TTS returned no data, falling back to browser TTS');
+        const utterance = new SpeechSynthesisUtterance(text);
+        synthRef.current.speak(utterance);
+      }
+    } catch (err) {
+      console.error('Speech generation failed, falling back to browser TTS:', err);
+      const utterance = new SpeechSynthesisUtterance(text);
+      synthRef.current.speak(utterance);
+    }
+  };
 
   const triggerHaptic = (type: 'success' | 'warning' | 'info') => {
     if (!window.navigator.vibrate) return;
@@ -163,11 +249,13 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
   };
 
   useEffect(() => {
-    startLiveMode();
+    if (isActive) {
+      startLiveMode();
+    }
     return () => {
       stopLiveMode();
     };
-  }, [facingMode]);
+  }, [facingMode, isActive]);
 
   useEffect(() => {
     isMicOnRef.current = isMicOn;
@@ -178,10 +266,11 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
   }, [isActive]);
 
   const stopLiveMode = () => {
-    setIsActive(false);
     if (recognitionRef.current) {
       recognitionRef.current.onend = null;
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
@@ -224,6 +313,13 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
       return;
     }
 
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
+
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = false;
@@ -240,20 +336,37 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
     };
 
     recognition.onerror = (event: any) => {
-      console.error('Speech recognition error', event.error);
-      if (event.error === 'no-speech' || event.error === 'aborted') return;
+      // 'aborted' is common when stopping/restarting manually
+      if (event.error === 'aborted') {
+        console.log('Speech recognition aborted - this is usually normal during mode switches');
+        return;
+      }
       
-      // Don't restart here, let onend handle it to avoid double starts
+      console.error('Speech recognition error:', event.error);
+      if (event.error === 'no-speech') return;
+      
+      // For other errors, we might want to notify the user
+      setStatus(`Mic Error: ${event.error}`);
     };
 
     recognition.onend = () => {
       isStartedRef.current = false;
+      
+      // Only restart if we're still active and the mic is supposed to be on
       if (isMicOnRef.current && isActiveRef.current) {
-        try {
-          recognition.start();
-        } catch (err) {
-          console.error('Failed to restart speech recognition:', err);
-        }
+        // Small delay to prevent rapid restart loops
+        setTimeout(() => {
+          if (isMicOnRef.current && isActiveRef.current && !isStartedRef.current) {
+            try {
+              recognition.start();
+            } catch (err) {
+              // If it's already started, ignore
+              if (!(err instanceof Error && err.message.includes('already started'))) {
+                console.error('Failed to restart speech recognition:', err);
+              }
+            }
+          }
+        }, 300);
       }
     };
 
@@ -425,18 +538,26 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
 
         // Conversational Logic
         let responseText = "";
-        const normalizedNext = result.nextQuestion?.toLowerCase().trim().replace(/[.?!]$/, "") || "";
+        const rawNextQuestion = (result.nextQuestion === 'null' || result.nextQuestion === 'Null') ? null : result.nextQuestion;
+        const normalizedNext = rawNextQuestion?.toLowerCase().trim().replace(/[.?!]$/, "") || "";
         const normalizedLast = lastQuestion?.toLowerCase().trim().replace(/[.?!]$/, "") || "";
 
-        if (result.nextQuestion) {
+        if (rawNextQuestion && questionCount < 3) {
           if (normalizedNext === normalizedLast) {
             setQuestionCount(prev => prev + 1);
+            // If repeating too much, force model to move to actions
+            if (questionCount >= 2) {
+              if (result.steps && result.steps.length > 0) {
+                responseText = result.steps[0];
+                setLastQuestion(null);
+              }
+            }
           } else {
-            responseText = result.nextQuestion;
-            setLastQuestion(result.nextQuestion);
+            responseText = rawNextQuestion;
+            setLastQuestion(rawNextQuestion);
             setQuestionCount(1);
           }
-        } else if (result.steps.length > 0) {
+        } else if (result.steps && result.steps.length > 0) {
           // If we have steps, we might have moved past the vital check question
           // Only update if the step is new or if we're stuck
           if (result.steps[0] !== lastResponse) {
@@ -448,6 +569,7 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
 
         if (responseText) {
           setLastResponse(responseText);
+          // Don't await speak to keep the loop moving faster, but handle concurrency
           speak(responseText);
           triggerHaptic('info');
           setChatHistory(prev => [...prev, { role: 'assistant', content: responseText }]);
@@ -460,14 +582,19 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
           setConversationState('vitals');
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('AI Loop Error:', err);
-      setStatus('Engine busy... retrying');
+      if (err.message === 'QUOTA_EXCEEDED') {
+        setIsQuotaExceeded(true);
+        setStatus('Quota Exceeded: Paid Key Required');
+      } else {
+        setStatus('Engine busy... retrying');
+      }
     } finally {
       setIsThinking(false);
-      // Faster loop for better responsiveness
+      // Faster loop for better responsiveness: 4 seconds instead of 8
       if (!userQuery && isActive) {
-        setTimeout(() => performAILoop(), 8000);
+        setTimeout(() => performAILoop(), 4000);
       }
     }
   };
@@ -498,16 +625,113 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
     return () => clearInterval(interval);
   }, [hapticPattern, isActive]);
 
-  const speak = (text: string) => {
-    if (synthRef.current.speaking) synthRef.current.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    synthRef.current.speak(utterance);
-  };
-
   return (
     <div className="fixed inset-0 bg-black z-[200] flex flex-col">
+      <AnimatePresence>
+        {!isActive && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[300] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center"
+          >
+            <div className="w-24 h-24 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mb-8">
+              <Activity className="w-10 h-10 text-emerald-500" />
+            </div>
+            <h2 className="text-3xl font-light tracking-tight mb-4">Initialize UMI Session</h2>
+            <p className="text-white/40 text-sm mb-12 max-w-xs leading-relaxed">
+              Universal Medical Intelligence requires a secure audio-visual link. Click below to establish the connection and begin real-time guidance.
+            </p>
+            <button 
+              onClick={() => {
+                console.log('Establishing Link...');
+                setIsActive(true);
+                // Prime speech synthesis with a silent utterance
+                try {
+                  const prime = new SpeechSynthesisUtterance("");
+                  window.speechSynthesis.speak(prime);
+                  
+                  // Also prime AudioContext
+                  if (!audioContextRef.current) {
+                    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+                  }
+                  if (audioContextRef.current.state === 'suspended') {
+                    audioContextRef.current.resume();
+                  }
+                } catch (e) {
+                  console.error('Failed to prime speech:', e);
+                }
+              }}
+              className="w-full max-w-xs py-5 bg-emerald-500 text-black font-bold uppercase tracking-[0.2em] text-xs rounded-2xl shadow-[0_0_50px_rgba(16,185,129,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+            >
+              Establish Link
+            </button>
+          </motion.div>
+        )}
+
+        {isQuotaExceeded && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[1000] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-8 text-center"
+          >
+            <div className="w-24 h-24 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-8">
+              <AlertTriangle className="w-10 h-10 text-red-500" />
+            </div>
+            
+            <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">API Quota Exceeded</h2>
+            <p className="text-white/60 mb-8 max-w-xs leading-relaxed">
+              The free Gemini API quota has been reached. To continue using Universal Live, please link a paid Google Cloud project.
+            </p>
+
+            <div className="space-y-4 w-full max-w-xs">
+              <button
+                onClick={async () => {
+                  if (window.aistudio?.openSelectKey) {
+                    await window.aistudio.openSelectKey();
+                    setIsQuotaExceeded(false);
+                    // The system will automatically inject the new key
+                    // We just need to restart the loop
+                    performAILoop();
+                  }
+                }}
+                className="w-full h-14 bg-white text-black font-bold rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform"
+              >
+                <Key className="w-5 h-5" />
+                Link Paid API Key
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsQuotaExceeded(false);
+                  stopLiveMode();
+                }}
+                className="w-full h-14 bg-white/5 border border-white/10 text-white font-bold rounded-2xl flex items-center justify-center active:scale-95 transition-transform"
+              >
+                Return to Hub
+              </button>
+            </div>
+
+            <div className="mt-12 p-6 rounded-2xl bg-white/5 border border-white/10 text-left">
+              <h3 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-3">Why am I seeing this?</h3>
+              <p className="text-[10px] text-white/60 leading-relaxed">
+                Universal Live performs high-frequency visual analysis. Free tier keys have strict rate limits. 
+                Linking a paid project enables unlimited high-speed processing.
+              </p>
+              <a 
+                href="https://ai.google.dev/gemini-api/docs/billing" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-block mt-4 text-[10px] text-blue-400 font-bold hover:underline"
+              >
+                Learn about Gemini API billing →
+              </a>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="relative flex-1 bg-black overflow-hidden">
         <video 
           ref={videoRef} 

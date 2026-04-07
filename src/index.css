@@ -1,1 +1,20 @@
 @import "tailwindcss";
+
+@layer base {
+  html, body, #root {
+    @apply h-full overflow-hidden bg-black;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  /* Custom scrollbar for mobile feel */
+  ::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}

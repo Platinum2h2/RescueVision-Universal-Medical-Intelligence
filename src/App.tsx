@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CameraView } from './components/CameraView';
 import { AnalysisOverlay } from './components/AnalysisOverlay';
@@ -18,9 +18,10 @@ const EXPERIMENTAL_DATA = [
 ];
 import { cn } from './lib/utils';
 
-import { StepRunner } from './components/StepRunner';
-import { LiveInterface } from './components/LiveInterface';
-import { ProjectNarrative } from './components/ProjectNarrative';
+const StepRunner = lazy(() => import('./components/StepRunner').then(module => ({ default: module.StepRunner })));
+const LiveInterface = lazy(() => import('./components/LiveInterface').then(module => ({ default: module.LiveInterface })));
+const BenchmarkTest = lazy(() => import('./components/BenchmarkTest').then(module => ({ default: module.BenchmarkTest })));
+const ProjectNarrative = lazy(() => import('./components/ProjectNarrative').then(module => ({ default: module.ProjectNarrative })));
 
 type AppState = 'IDLE' | 'CAPTURE_FAR' | 'CAPTURE_CLOSEUP' | 'ANALYZING' | 'RESULTS' | 'ERROR';
 
@@ -29,6 +30,7 @@ export default function App() {
   const [showLiveMode, setShowLiveMode] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(true);
   const [showResearchData, setShowResearchData] = useState(false);
+  const [showLiveBenchmark, setShowLiveBenchmark] = useState(false);
   const [farImage, setFarImage] = useState<string | null>(null);
   const [closeupImage, setCloseupImage] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<FirstAidResponse | null>(null);
@@ -82,58 +84,101 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-emerald-500/30">
-      <AnimatePresence>
-        {showDisclaimer && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6"
-          >
-            <div className="max-w-md w-full bg-[#0A0A0A] border border-white/10 rounded-3xl p-8 shadow-2xl">
-              <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-6">
-                <Shield className="w-6 h-6 text-red-400" />
+    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-emerald-500/30 flex justify-center overflow-hidden">
+      <div className="w-full max-w-md relative bg-black shadow-2xl shadow-emerald-500/5">
+        <AnimatePresence>
+          {showDisclaimer && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6"
+            >
+              <div className="max-w-sm w-full bg-[#0A0A0A] border border-white/10 rounded-3xl p-8 shadow-2xl">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-6">
+                  <Shield className="w-6 h-6 text-red-400" />
+                </div>
+                <h2 className="text-2xl font-light tracking-tight mb-4 text-white">RescueVision: Safety Protocol</h2>
+                <div className="space-y-4 text-white/40 text-sm leading-relaxed mb-8">
+                  <p>
+                    RescueVision v2.5 is a Universal Medical Intelligence platform.
+                  </p>
+                  <p>
+                    It utilizes <span className="text-white font-medium">Procedural Fidelity Scanning</span> and <span className="text-white font-medium">Verification Gating</span> to provide real-time guidance.
+                  </p>
+                  <p>
+                    This is a research prototype for clinical, surgical, laboratory, and biomedical engineering use. Always consult professional medical services first.
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setShowDisclaimer(false)}
+                  className="w-full py-4 bg-white text-black font-bold uppercase tracking-[0.2em] text-xs rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+                >
+                  I Understand & Accept
+                </button>
               </div>
-              <h2 className="text-2xl font-light tracking-tight mb-4 text-white">RescueVision: Safety Protocol</h2>
-              <div className="space-y-4 text-white/40 text-sm leading-relaxed mb-8">
-                <p>
-                  RescueVision v2.5 is a Universal Medical Intelligence platform.
-                </p>
-                <p>
-                  It utilizes <span className="text-white font-medium">Procedural Fidelity Scanning</span> and <span className="text-white font-medium">Verification Gating</span> to provide real-time guidance.
-                </p>
-                <p>
-                  This is a research prototype for clinical, surgical, laboratory, and biomedical engineering use. Always consult professional medical services first.
-                </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showLiveMode && (
+            <Suspense fallback={
+              <div className="absolute inset-0 bg-black z-[300] flex flex-col items-center justify-center gap-4">
+                <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+                <p className="text-white/40 font-mono text-[10px] uppercase tracking-widest">Initializing Live Interface...</p>
               </div>
-              <button 
-                onClick={() => setShowDisclaimer(false)}
-                className="w-full py-4 bg-white text-black font-bold uppercase tracking-[0.2em] text-xs rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
-              >
-                I Understand & Accept
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            }>
+              <LiveInterface onClose={() => setShowLiveMode(false)} />
+            </Suspense>
+          )}
+        </AnimatePresence>
 
-      <AnimatePresence>
-        {showLiveMode && (
-          <LiveInterface onClose={() => setShowLiveMode(false)} />
-        )}
-      </AnimatePresence>
+        <AnimatePresence mode="wait">
+          {state === 'IDLE' && (
+            <motion.div 
+              key="idle"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="h-full flex flex-col items-center justify-center p-8 text-center overflow-y-auto no-scrollbar"
+            >
+            {/* Live Benchmark Modal */}
+            <AnimatePresence>
+              {showLiveBenchmark && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+                >
+                  <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    className="bg-gray-900 w-full h-full rounded-2xl overflow-hidden border border-gray-800 shadow-2xl relative"
+                  >
+                    <button 
+                      onClick={() => setShowLiveBenchmark(false)}
+                      className="absolute top-4 right-4 p-2 hover:bg-gray-800 rounded-full text-gray-400 z-10"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <div className="overflow-y-auto h-full no-scrollbar">
+                      <Suspense fallback={
+                        <div className="h-full flex flex-col items-center justify-center gap-4">
+                          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+                          <p className="text-white/40 font-mono text-[10px] uppercase tracking-widest text-center px-8">Initializing Benchmark Engine...</p>
+                        </div>
+                      }>
+                        <BenchmarkTest />
+                      </Suspense>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-      <AnimatePresence mode="wait">
-        {state === 'IDLE' && (
-          <motion.div 
-            key="idle"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="h-screen flex flex-col items-center justify-center p-8 text-center"
-          >
-            {/* Research Data Modal */}
             <AnimatePresence>
               {showResearchData && (
                 <motion.div 
@@ -157,7 +202,9 @@ export default function App() {
                     </div>
 
                     <div className="mb-12">
-                      <ProjectNarrative />
+                      <Suspense fallback={<div className="h-20 animate-pulse bg-white/5 rounded-xl" />}>
+                        <ProjectNarrative />
+                      </Suspense>
                     </div>
 
                     <div className="h-px bg-white/10 mb-12" />
@@ -346,6 +393,14 @@ export default function App() {
                   <Database className="w-4 h-4" />
                   Experimental Validation Button
                 </button>
+
+                <button 
+                  onClick={() => setShowLiveBenchmark(true)}
+                  className="px-12 py-5 bg-purple-600 text-white font-bold uppercase tracking-[0.2em] text-[10px] rounded-2xl hover:bg-purple-500 transition-all flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(147,51,234,0.2)]"
+                >
+                  <Activity className="w-4 h-4" />
+                  Live Performance Test (p-value)
+                </button>
               </div>
             </div>
 
@@ -417,11 +472,16 @@ export default function App() {
               </div>
             </div>
             
-            <div className="text-center space-y-2">
+            <div className="text-center space-y-4">
               <h2 className="text-xl font-mono tracking-widest uppercase">Neural Processing</h2>
-              <p className="text-white/40 text-[10px] font-mono uppercase tracking-widest animate-pulse">
-                Analyzing tissue patterns & severity markers...
-              </p>
+              <div className="flex flex-col gap-1">
+                <p className="text-white/40 text-[10px] font-mono uppercase tracking-widest animate-pulse">
+                  Analyzing tissue patterns & severity markers...
+                </p>
+                <p className="text-emerald-500/60 text-[8px] font-mono uppercase tracking-widest">
+                  Estimated time: 3-5 seconds
+                </p>
+              </div>
             </div>
 
             {/* Simulated Data Stream */}
@@ -440,11 +500,18 @@ export default function App() {
         )}
 
         {state === 'RESULTS' && analysisResult && closeupImage && (
-          <StepRunner 
-            data={analysisResult} 
-            closeupImage={closeupImage} 
-            onClose={reset}
-          />
+          <Suspense fallback={
+            <div className="h-screen flex flex-col items-center justify-center gap-4 bg-black">
+              <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+              <p className="text-white/40 font-mono text-[10px] uppercase tracking-widest">Loading Protocol Runner...</p>
+            </div>
+          }>
+            <StepRunner 
+              data={analysisResult} 
+              closeupImage={closeupImage} 
+              onClose={reset}
+            />
+          </Suspense>
         )}
 
         {state === 'ERROR' && (
@@ -464,6 +531,7 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 }

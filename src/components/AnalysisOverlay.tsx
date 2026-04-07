@@ -22,9 +22,9 @@ export const AnalysisOverlay: React.FC<AnalysisOverlayProps> = ({ data, closeupI
   };
 
   return (
-    <div className="fixed inset-0 bg-[#050505] z-50 flex flex-col md:flex-row overflow-hidden">
-      {/* Left Side: Visual AR View */}
-      <div className="relative flex-1 bg-black overflow-hidden border-r border-white/10">
+    <div className="absolute inset-0 bg-[#050505] z-50 flex flex-col overflow-hidden">
+      {/* Top: Visual AR View */}
+      <div className="relative h-1/3 bg-black overflow-hidden border-b border-white/10 shrink-0">
         <img 
           src={closeupImage} 
           alt="Closeup analysis" 
@@ -43,33 +43,25 @@ export const AnalysisOverlay: React.FC<AnalysisOverlayProps> = ({ data, closeupI
               className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
             >
               <div className={cn(
-                "w-8 h-8 rounded-full border-2 flex items-center justify-center relative",
+                "w-6 h-6 rounded-full border flex items-center justify-center relative",
                 point.type === 'action' ? "border-emerald-400 bg-emerald-400/20" :
                 point.type === 'warning' ? "border-red-400 bg-red-400/20" :
                 "border-blue-400 bg-blue-400/20"
               )}>
-                <div className="w-2 h-2 rounded-full bg-white animate-ping" />
-                
-                {/* Label Tooltip */}
-                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/80 border border-white/20 px-2 py-1 rounded text-[10px] text-white font-mono uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
-                  {point.label}
-                </div>
+                <div className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
               </div>
-              
-              {/* Connecting Line to Label (Visual Flair) */}
-              <div className="absolute w-px h-8 bg-white/20 top-full left-1/2" />
             </motion.div>
           ))}
         </div>
 
         {/* HUD Elements */}
-        <div className="absolute top-6 left-6 flex flex-col gap-1">
+        <div className="absolute top-4 left-4 flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-emerald-400" />
-            <span className="text-white font-mono text-[10px] tracking-widest uppercase">SCAN_COMPLETE: {data.diagnosis}</span>
+            <Activity className="w-3 h-3 text-emerald-400" />
+            <span className="text-white font-mono text-[8px] tracking-widest uppercase">SCAN_COMPLETE: {data.diagnosis}</span>
           </div>
           <div className={cn(
-            "px-2 py-0.5 border rounded text-[9px] font-mono uppercase tracking-tighter inline-block w-fit",
+            "px-2 py-0.5 border rounded text-[7px] font-mono uppercase tracking-tighter inline-block w-fit",
             severityColors[data.severity]
           )}>
             SEVERITY: {data.severity}
@@ -78,30 +70,30 @@ export const AnalysisOverlay: React.FC<AnalysisOverlayProps> = ({ data, closeupI
 
         <button 
           onClick={onClose}
-          className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-colors"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Right Side: Instructions Panel */}
-      <div className="w-full md:w-[400px] bg-[#0A0A0A] flex flex-col border-l border-white/10">
-        <div className="p-8 border-b border-white/5">
-          <h3 className="text-white/40 font-mono text-[10px] uppercase tracking-[0.2em] mb-4">Emergency Protocol</h3>
-          <h2 className="text-2xl text-white font-light tracking-tight">{data.diagnosis}</h2>
+      {/* Bottom: Instructions Panel */}
+      <div className="flex-1 bg-[#0A0A0A] flex flex-col overflow-hidden">
+        <div className="p-6 border-b border-white/5 shrink-0">
+          <h3 className="text-white/40 font-mono text-[8px] uppercase tracking-[0.2em] mb-2">Emergency Protocol</h3>
+          <h2 className="text-xl text-white font-light tracking-tight">{data.diagnosis}</h2>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 space-y-8">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
           {/* Warnings Section */}
           {data.warnings.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center gap-2 text-red-400">
-                <AlertTriangle className="w-4 h-4" />
-                <span className="font-mono text-[10px] uppercase tracking-wider">Critical Warnings</span>
+                <AlertTriangle className="w-3 h-3" />
+                <span className="font-mono text-[8px] uppercase tracking-wider">Critical Warnings</span>
               </div>
               <div className="space-y-2">
                 {data.warnings.map((warning, i) => (
-                  <div key={i} className="p-3 bg-red-400/5 border border-red-400/20 rounded-lg text-red-200/80 text-xs leading-relaxed">
+                  <div key={i} className="p-3 bg-red-400/5 border border-red-400/20 rounded-lg text-red-200/80 text-[10px] leading-relaxed">
                     {warning}
                   </div>
                 ))}
@@ -110,12 +102,12 @@ export const AnalysisOverlay: React.FC<AnalysisOverlayProps> = ({ data, closeupI
           )}
 
           {/* Steps Section */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center gap-2 text-emerald-400">
-              <CheckCircle2 className="w-4 h-4" />
-              <span className="font-mono text-[10px] uppercase tracking-wider">Action Plan</span>
+              <CheckCircle2 className="w-3 h-3" />
+              <span className="font-mono text-[8px] uppercase tracking-wider">Action Plan</span>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {data.steps.map((step, i) => (
                 <motion.div 
                   key={i}
@@ -123,17 +115,17 @@ export const AnalysisOverlay: React.FC<AnalysisOverlayProps> = ({ data, closeupI
                   animate={{ x: 0, opacity: 1 }}
                   transition={{ delay: 0.8 + i * 0.1 }}
                   className={cn(
-                    "relative pl-8 pb-4 border-l border-white/10 last:pb-0",
+                    "relative pl-6 pb-3 border-l border-white/10 last:pb-0",
                     activeStep === i ? "border-emerald-400/50" : ""
                   )}
                   onClick={() => setActiveStep(i)}
                 >
                   <div className={cn(
-                    "absolute left-[-5px] top-0 w-2 h-2 rounded-full border border-white/20 transition-colors",
+                    "absolute left-[-4.5px] top-0 w-2 h-2 rounded-full border border-white/20 transition-colors",
                     activeStep === i ? "bg-emerald-400 border-emerald-400" : "bg-black"
                   )} />
                   <div className={cn(
-                    "text-xs leading-relaxed transition-colors cursor-pointer",
+                    "text-[11px] leading-relaxed transition-colors cursor-pointer",
                     activeStep === i ? "text-white" : "text-white/40"
                   )}>
                     <Markdown>{step}</Markdown>
@@ -145,15 +137,15 @@ export const AnalysisOverlay: React.FC<AnalysisOverlayProps> = ({ data, closeupI
         </div>
 
         {/* Footer Action */}
-        <div className="p-8 bg-white/5 border-t border-white/10">
+        <div className="p-6 bg-white/5 border-t border-white/10 shrink-0">
           <button 
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2"
+            className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-[10px] uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2"
             onClick={() => window.print()}
           >
             Export Medical Log
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-3 h-3" />
           </button>
-          <p className="mt-4 text-[9px] text-white/20 text-center uppercase tracking-widest">
+          <p className="mt-3 text-[7px] text-white/20 text-center uppercase tracking-widest">
             Aegis Quantum v2.1 | ISEF 2026 Submission
           </p>
         </div>

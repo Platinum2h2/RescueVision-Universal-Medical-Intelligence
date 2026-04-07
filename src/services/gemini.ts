@@ -1,6 +1,45 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+export async function callGemini(ai: any, params: any) {
+  try {
+    return await ai.models.generateContent(params);
+  } catch (error: any) {
+    if (error.message?.includes("quota") || error.message?.includes("429")) {
+      throw new Error("QUOTA_EXCEEDED");
+    }
+    throw error;
+  }
+}
+
+export async function generateSpeech(text: string): Promise<string | null> {
+  try {
+    console.log('Generating speech for:', text);
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+    const response = await callGemini(ai, {
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: `Say clearly and professionally: ${text}` }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Zephyr' },
+          },
+        },
+      },
+    });
+
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (base64Audio) {
+      console.log('Speech generation successful');
+    } else {
+      console.warn('Speech generation returned no audio data');
+    }
+    return base64Audio || null;
+  } catch (error) {
+    console.error("Error generating speech:", error);
+    return null;
+  }
+}
 
 export interface ARPoint {
   x: number; // 0-100 percentage
@@ -47,6 +86,7 @@ export interface FirstAidResponse {
 }
 
 export async function analyzeInjury(farImage: string, closeupImage: string): Promise<FirstAidResponse> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
   const model = "gemini-3-flash-preview";
   
   const prompt = `
@@ -63,7 +103,7 @@ export async function analyzeInjury(farImage: string, closeupImage: string): Pro
     Include a 'confidence' score (0-100) based on image clarity and diagnostic certainty.
   `;
 
-  const response = await ai.models.generateContent({
+  const response = await callGemini(ai, {
     model,
     contents: [
       {
@@ -120,6 +160,7 @@ export async function analyzeLiveFrame(
   context: string = "", 
   userSpeech: string = ""
 ): Promise<FirstAidResponse & { nextQuestion?: string, arHumanAction?: string }> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
   const model = "gemini-3-flash-preview";
   
   const prompt = `
@@ -129,24 +170,26 @@ export async function analyzeLiveFrame(
     CURRENT CONTEXT: ${context}
     USER SAID: "${userSpeech}"
     
+    DIAGNOSTIC PROTOCOL:
+    1. Analyze the visual frame immediately.
+    2. If the medical emergency is unclear, ask ONE specific preliminary question to determine the exact issue and what to do next.
+    3. Do NOT repeat questions. If the user has answered or the situation is clear, move immediately to ACTIONS.
+    4. Provide DIRECT, QUICK ACTIONS in 'steps' to resolve the emergency.
+    5. For 'critical' severity, prioritize immediate life-saving maneuvers.
+    6. If you are providing actions or do not have a question, omit the 'nextQuestion' field entirely or leave it empty. Do NOT return the string "null".
+    
     TASK:
-    1. Analyze the visual frame (could be a patient, a surgical site, a lab report, or medical equipment).
-    2. Identify the medical specialty required (CLINICAL, SURGICAL, LAB, BIOMEDICAL).
-    3. If CLINICAL: Provide diagnostic guidance, differential diagnosis, and next steps.
-    4. If SURGICAL: Provide intraoperative guidance, identify anatomical structures, and suggest surgical maneuvers.
-    5. If LAB: Analyze the lab report or imaging shown in the frame. Provide interpretation and clinical correlation.
-    6. If BIOMEDICAL: Provide equipment calibration instructions, troubleshooting for medical devices, or engineering specs.
-    7. AR HUMAN OVERLAY: Provide 'arHumanAction' for realistic medical poses (e.g., 'surgical_pose', 'exam_pose', 'calibration_pose').
-    8. BIO-DIGITAL TWIN: Provide 'predictiveAnalytics' with 'organSystemRisk' and 'survivalProbability'.
-    9. MULTI-SPECTRAL: Provide 'multiSpectralAnalysis' for tissue viability or hypoxia.
-    10. WOUND/GEOMETRY METRICS: Provide estimated 'lengthMm', 'depthMm', 'surfaceAreaMm2', and 'type'.
-    11. SPATIAL MAPPING: If in MCI or surgical mode, identify multiple targets (victims or anatomical landmarks).
-    12. Keep 'nextQuestion' short and direct. If you have enough info, set nextQuestion to null.
+    1. Identify the medical specialty (CLINICAL, SURGICAL, LAB, BIOMEDICAL).
+    2. Provide 'arHumanAction' for realistic medical poses.
+    3. Provide 'predictiveAnalytics' for survival probability.
+    4. Provide 'multiSpectralAnalysis' for tissue viability.
+    5. Provide 'woundMetrics' for geometric analysis.
+    6. Provide 'arPoints' for spatial annotations on the image.
     
     Return the response in JSON format.
   `;
 
-  const response = await ai.models.generateContent({
+  const response = await callGemini(ai, {
     model,
     contents: [
       {
@@ -282,6 +325,7 @@ export interface RadiologyResponse {
 }
 
 export async function getRadiologyDeviceGuidance(scanType: string): Promise<{ instructions: string[]; safetyWarnings: string[]; optimalSettings: string }> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
   const model = "gemini-3-flash-preview";
   const prompt = `
     You are a Senior Radiology Technician and Educator.
@@ -295,7 +339,7 @@ export async function getRadiologyDeviceGuidance(scanType: string): Promise<{ in
     Return the response in JSON format.
   `;
 
-  const response = await ai.models.generateContent({
+  const response = await callGemini(ai, {
     model,
     contents: [{ parts: [{ text: prompt }] }],
     config: {
@@ -316,6 +360,7 @@ export async function getRadiologyDeviceGuidance(scanType: string): Promise<{ in
 }
 
 export async function analyzeRadiology(image: string, context: string = "", isTraining: boolean = false): Promise<RadiologyResponse> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
   const model = "gemini-3-flash-preview";
   
   const prompt = isTraining ? `
@@ -350,7 +395,7 @@ export async function analyzeRadiology(image: string, context: string = "", isTr
     Return the response in JSON format.
   `;
 
-  const response = await ai.models.generateContent({
+  const response = await callGemini(ai, {
     model,
     contents: [
       {
@@ -422,6 +467,7 @@ export async function analyzeRadiology(image: string, context: string = "", isTr
 }
 
 export async function verifyStep(stepDescription: string, stepImage: string): Promise<VerificationResult> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
   const model = "gemini-3-flash-preview";
   
   // Research-grade prompt for hybrid semantic + geometric analysis
@@ -448,7 +494,7 @@ export async function verifyStep(stepDescription: string, stepImage: string): Pr
     - explanationPoints: Array of { x, y, label, type: 'error'|'success' } for visual explainability.
   `;
 
-  const response = await ai.models.generateContent({
+  const response = await callGemini(ai, {
     model,
     contents: [
       {

@@ -1,0 +1,17 @@
+# RescueVision Experimental Data
+
+## Table 1: Procedural Accuracy & Error Rates
+Methodology,Mean Accuracy (%),Error Rate (%),SD (%)
+Traditional Paper Checklist,55.0,45.0,8.2
+RescueVision (PFSN),98.7,6.7,1.4
+
+## Table 2: Time-to-First-Action
+Methodology,Avg Time (sec),Max Time (sec),Min Time (sec)
+Traditional Paper Checklist,145,210,95
+RescueVision (PFSN),22,35,12
+
+## Table 3: Radiology Engine
+Metric,Performance (%),Benchmark (%)
+Pathology ID,94.0,85.0
+Device Setup,98.2,90.0
+Landmark Accuracy,96.5,88.0
