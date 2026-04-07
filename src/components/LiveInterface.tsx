@@ -102,6 +102,23 @@ declare global {
   }
 }
 
+type GuidedProtocolState = {
+  diagnosis: string;
+  emergencyLabel: string;
+  emergencyType: EmergencyType;
+  // "checkin" = waiting for patient-status update before advancing to next step
+  phase: "question" | "action" | "unresponsive" | "checkin";
+  question?: string;
+  started: boolean;
+  stepIndex: number;
+  // When phase is "checkin" this is the step we will move to once the user responds
+  pendingNextStepIndex?: number;
+  steps: string[];
+  assistantTurns: number;
+  minAssistantTurns: number;
+  isComplete: boolean;
+};
+
 export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
   const [isMicOn, setIsMicOn] = useState(true);
   const [status, setStatus] = useState("Initializing emergency guidance...");
@@ -182,6 +199,9 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
     useState<EmergencyType>("unknown");
   const [activeEmergencyLabel, setActiveEmergencyLabel] =
     useState("Emergency Intake");
+  const [guidedProtocol, setGuidedProtocol] = useState<GuidedProtocolState | null>(
+    null,
+  );
   const [chatHistory, setChatHistory] = useState<
     { role: "user" | "assistant"; content: string }[]
   >([]);
@@ -256,6 +276,7 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
   const isMicOnRef = useRef(isMicOn);
   const isActiveRef = useRef(isActive);
   const isStartedRef = useRef(false);
+  const handleUserSpeechRef = useRef<(text: string) => void>(() => {});
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -267,6 +288,44 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
   const lastSpokenTextRef = useRef("");
   const lastSpokenAtRef = useRef(0);
   const lastUserSpeechRef = useRef({ text: "", at: 0 });
+  const assistantSpeakingRef = useRef(false);
+  const recentGeminiTtsRequestsRef = useRef<number[]>([]);
+  const geminiTtsCooldownUntilRef = useRef(0);
+
+  const resumeRecognition = () => {
+    if (
+      !recognitionRef.current ||
+      !isMicOnRef.current ||
+      !isActiveRef.current ||
+      assistantSpeakingRef.current ||
+      isStartedRef.current
+    ) {
+      return;
+    }
+
+    setTimeout(() => {
+      if (
+        recognitionRef.current &&
+        isMicOnRef.current &&
+        isActiveRef.current &&
+        !assistantSpeakingRef.current &&
+        !isStartedRef.current
+      ) {
+        try {
+          recognitionRef.current.start();
+        } catch (err) {
+          if (
+            !(
+              err instanceof Error &&
+              err.message.includes("already started")
+            )
+          ) {
+            console.error("Failed to resume speech recognition:", err);
+          }
+        }
+      }
+    }, 250);
+  };
 
   const speak = async (text: string) => {
     if (!text || !isActiveRef.current) return;
@@ -281,6 +340,7 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
 
     const requestId = ++speakRequestIdRef.current;
     console.log("UMI Speaking:", text);
+    assistantSpeakingRef.current = true;
 
     // Stop any current speech
     if (synthRef.current.speaking) synthRef.current.cancel();
@@ -289,18 +349,36 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
         currentSourceRef.current.stop();
       } catch (e) {}
     }
+    if (recognitionRef.current && isStartedRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
+
+    const recentRequests = recentGeminiTtsRequestsRef.current.filter(
+      (timestamp) => now - timestamp < 60000,
+    );
+    recentGeminiTtsRequestsRef.current = recentRequests;
+    // Only use Gemini TTS for the very first greeting (no active protocol yet)
+    // and at most once per minute. Falls back to browser TTS otherwise to
+    // avoid 429 rate-limit errors during the back-and-forth conversation.
+    const canUseGeminiTts =
+      now >= geminiTtsCooldownUntilRef.current &&
+      recentRequests.length < 1 &&
+      !guidedProtocol;
 
     try {
-      console.log("Attempting Gemini TTS...");
-      const base64Audio = await generateSpeech(text);
-      if (
-        requestId !== speakRequestIdRef.current ||
-        !isActiveRef.current ||
-        !isMicOnRef.current
-      ) {
+      if (canUseGeminiTts) {
+        recentGeminiTtsRequestsRef.current = [...recentRequests, now];
+        console.log("Attempting Gemini TTS...");
+      }
+      const base64Audio = canUseGeminiTts ? await generateSpeech(text) : null;
+      if (requestId !== speakRequestIdRef.current || !isActiveRef.current) {
+        assistantSpeakingRef.current = false;
+        resumeRecognition();
         return;
       }
-      if (base64Audio) {
+      if (base64Audio && canUseGeminiTts) {
         console.log("Gemini TTS successful, playing via AudioContext");
         if (!audioContextRef.current) {
           audioContextRef.current = new (
@@ -333,23 +411,35 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
         const source = audioContext.createBufferSource();
         source.buffer = buffer;
         source.connect(audioContext.destination);
+        source.onended = () => {
+          if (currentSourceRef.current === source) {
+            currentSourceRef.current = null;
+          }
+          assistantSpeakingRef.current = false;
+          resumeRecognition();
+        };
         source.start();
         currentSourceRef.current = source;
         lastSpokenTextRef.current = normalizedText;
         lastSpokenAtRef.current = Date.now();
         console.log("Audio playback started");
       } else {
-        console.warn(
-          "Gemini TTS returned no data, falling back to browser TTS",
-        );
-        if (
-          requestId !== speakRequestIdRef.current ||
-          !isActiveRef.current ||
-          !isMicOnRef.current
-        ) {
-          return;
+        if (canUseGeminiTts) {
+          console.warn(
+            "Gemini TTS returned no data, falling back to browser TTS",
+          );
+          // 10-minute cooldown so we don't hammer the API
+          geminiTtsCooldownUntilRef.current = Date.now() + 10 * 60 * 1000;
         }
         const utterance = new SpeechSynthesisUtterance(text);
+        utterance.onend = () => {
+          assistantSpeakingRef.current = false;
+          resumeRecognition();
+        };
+        utterance.onerror = () => {
+          assistantSpeakingRef.current = false;
+          resumeRecognition();
+        };
         synthRef.current.speak(utterance);
         lastSpokenTextRef.current = normalizedText;
         lastSpokenAtRef.current = Date.now();
@@ -359,14 +449,22 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
         "Speech generation failed, falling back to browser TTS:",
         err,
       );
-      if (
-        requestId !== speakRequestIdRef.current ||
-        !isActiveRef.current ||
-        !isMicOnRef.current
-      ) {
+      // Extended 10-minute cooldown after a 429 or other API error
+      geminiTtsCooldownUntilRef.current = Date.now() + 10 * 60 * 1000;
+      if (requestId !== speakRequestIdRef.current || !isActiveRef.current) {
+        assistantSpeakingRef.current = false;
+        resumeRecognition();
         return;
       }
       const utterance = new SpeechSynthesisUtterance(text);
+      utterance.onend = () => {
+        assistantSpeakingRef.current = false;
+        resumeRecognition();
+      };
+      utterance.onerror = () => {
+        assistantSpeakingRef.current = false;
+        resumeRecognition();
+      };
       synthRef.current.speak(utterance);
       lastSpokenTextRef.current = normalizedText;
       lastSpokenAtRef.current = Date.now();
@@ -389,6 +487,422 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
     }
   };
 
+  const detectEmergencyFromSpeech = (text: string): EmergencyType => {
+    if (
+      /chok|food stuck|something stuck|hands at throat|cannot speak|can't speak|cannot cough|can't cough|airway blocked/.test(
+        text,
+      )
+    ) {
+      return "choking";
+    }
+
+    if (
+      /anaphylaxis|allergic|epipen|epi pen|hives|swollen lips|swelling lips|swelling tongue|bee sting allergy/.test(
+        text,
+      )
+    ) {
+      return "allergic_reaction";
+    }
+
+    if (/seizure|convulsion|shaking uncontrollably|fits/.test(text)) {
+      return "seizure";
+    }
+
+    if (/face droop|slurred speech|one arm weak|stroke|fast test/.test(text)) {
+      return "stroke";
+    }
+
+    if (
+      /chest pain|heart attack|pressure in chest|pain in jaw|pain in left arm|cardiac/.test(
+        text,
+      )
+    ) {
+      return "cardiac";
+    }
+
+    if (
+      /bleeding|blood everywhere|cut badly|wound bleeding|spurting blood|gushing blood|hemorrhage/.test(
+        text,
+      )
+    ) {
+      return "bleeding";
+    }
+
+    if (/burn|scald|chemical burn|electrical burn|on fire|hot oil/.test(text)) {
+      return "burn";
+    }
+
+    if (
+      /asthma|wheezing|short of breath|shortness of breath|trouble breathing|difficulty breathing/.test(
+        text,
+      )
+    ) {
+      return "breathing";
+    }
+
+    if (/unresponsive|unconscious|not responding|collapsed|no pulse|not breathing/.test(text)) {
+      return "unresponsive";
+    }
+
+    return "unknown";
+  };
+
+  const buildFeedbackPrompt = (protocol: GuidedProtocolState) => {
+    if (protocol.phase === "unresponsive") {
+      return "Keep going. Tell me if an AED arrives, if they start breathing, or if anything changes.";
+    }
+    const isLastStep = protocol.stepIndex >= protocol.steps.length - 1;
+    if (isLastStep) {
+      return "Tell me when that is done and how the person is responding.";
+    }
+    return "Tell me when you have done that and I will give you the next step.";
+  };
+
+  const buildProtocolSpeech = (
+    protocol: GuidedProtocolState,
+    options?: { intro?: boolean; repeatCurrentStep?: boolean },
+  ) => {
+    if (protocol.phase === "question" && protocol.question) {
+      return protocol.question;
+    }
+
+    const stepIndex = Math.max(
+      0,
+      Math.min(protocol.stepIndex, protocol.steps.length - 1),
+    );
+    const step = protocol.steps[stepIndex];
+    const isFirst = stepIndex === 0;
+
+    let intro = "";
+    if (options?.intro) {
+      intro = `Okay, I can see this — this looks like a ${protocol.emergencyLabel} situation. Stay calm, I am going to guide you through this one step at a time. `;
+    }
+
+    const stepLabel = isFirst && options?.intro ? "First" : `Step ${stepIndex + 1}`;
+    return `${intro}${stepLabel}: ${step}. ${buildFeedbackPrompt(protocol)}`;
+  };
+
+  const buildCompletionSpeech = (protocol: GuidedProtocolState) => {
+    return `You have done the main steps for this ${protocol.emergencyLabel.toLowerCase()} situation. Keep watching the person closely. Tell me if they are improving, still in danger, or getting worse — and I will keep guiding you.`;
+  };
+
+  // Returns true when the user's check-in reply clearly signals the emergency is over.
+  const isEmergencyResolved = (emergencyType: EmergencyType, lowerText: string): boolean => {
+    switch (emergencyType) {
+      case "choking":
+        return /object came out|it('s| is) out|can speak( now)?|can breathe( now)?|breathing( normally)?( now)?|airway( is)? clear|coughing it out|all good/.test(lowerText);
+      case "bleeding":
+        return /bleeding (has )?stopped|stopped bleeding|no longer bleeding|wound( is)? clean|bandaged|under control/.test(lowerText);
+      case "burn":
+        return /burn( is)? cooled|cooled down|pain( is)? going away|feels better|no blistering/.test(lowerText);
+      case "seizure":
+        return /seizure (has )?stopped|stopped seizing|breathing normally|waking up|conscious now|responsive/.test(lowerText);
+      case "allergic_reaction":
+        return /swelling( is)? going down|breathing( is)? better|epipen worked|improving|symptoms( are)? resolving/.test(lowerText);
+      case "cardiac":
+        return /chest pain( is)? gone|feeling better|pain stopped|colour( is)? back|responsive/.test(lowerText);
+      case "stroke":
+        return /symptoms( are)? improving|speech( is)? coming back|arm( is)? working|ambulance( is)? here|help arrived/.test(lowerText);
+      case "breathing":
+        return /breathing( normally)?( now)?|can speak( in)? full sentences|inhaler worked|much better/.test(lowerText);
+      case "unresponsive":
+        return /breathing( now)?|pulse( is)? back|responsive|woke up|conscious/.test(lowerText);
+      default:
+        return false;
+    }
+  };
+
+  const buildResolvedSpeech = (protocol: GuidedProtocolState): string => {
+    switch (protocol.emergencyType) {
+      case "choking":
+        return "The airway is clear — that is a great outcome. Keep watching them for a few minutes and make sure breathing stays normal. If they feel sore or have any difficulty breathing afterward, get them checked by a doctor.";
+      case "bleeding":
+        return "The bleeding is under control — well done. Keep the wound covered and clean. Watch for any signs of infection over the next day or two and seek medical care if needed.";
+      case "burn":
+        return "The burn is cooled and stable. Keep it loosely covered and avoid breaking any blisters. See a doctor to assess the wound properly.";
+      case "seizure":
+        return "They are coming around — that is a positive sign. Keep them on their side, stay calm, and wait with them until they are fully alert. A doctor should still assess them even if they feel fine.";
+      case "allergic_reaction":
+        return "The reaction is improving. Even so, they need to be seen by a doctor today — reactions can return. Keep monitoring their breathing and do not leave them alone.";
+      case "cardiac":
+        return "The pain has eased — that is reassuring. They still need to be evaluated by a doctor or go to the emergency room today. Do not let them drive.";
+      case "stroke":
+        return "Help has arrived or symptoms are improving. Make sure they are still evaluated by medical professionals even if things seem better — time is critical with stroke.";
+      case "breathing":
+        return "Breathing is back under control — great work. Keep them calm and upright for now. If it gets worse again, call emergency services immediately.";
+      case "unresponsive":
+        return "They are breathing and responsive — that is a great sign. Keep them still and comfortable until emergency services arrive. Do not give them anything to eat or drink.";
+      default:
+        return "It sounds like the situation is improving. Keep monitoring closely and call emergency services if anything changes.";
+    }
+  };
+
+  const buildProgressCheckQuestion = (protocol: GuidedProtocolState) => {
+    switch (protocol.emergencyType) {
+      case "choking":
+        return "Tell me whether the object came out, whether they can speak now, or whether they are still choking.";
+      case "bleeding":
+        return "Tell me whether the bleeding has slowed down, stopped, or is still soaking through.";
+      case "burn":
+        return "Tell me whether the burn is cooled, whether there is blistering, or whether the pain is getting worse.";
+      case "seizure":
+        return "Tell me whether the seizure has stopped, whether they are breathing normally, and whether they are waking up.";
+      case "allergic_reaction":
+        return "Tell me whether the swelling or breathing is improving, staying the same, or getting worse.";
+      case "cardiac":
+        return "Tell me whether the chest pain is still there, whether they are getting weaker, or whether they have collapsed.";
+      case "stroke":
+        return "Tell me whether speech, face droop, or weakness is changing while you wait for emergency help.";
+      case "breathing":
+        return "Tell me whether breathing is improving, whether they can speak in full sentences, or whether they are getting worse.";
+      case "unresponsive":
+        return "Tell me whether they are still unresponsive, whether an AED is ready, or whether breathing has returned.";
+      default:
+        return "Tell me what changed after that step so I can guide the next one.";
+    }
+  };
+
+  const handleGuidedProtocolFeedback = (text: string) => {
+    if (!guidedProtocol) {
+      return false;
+    }
+
+    // During a clarifying question phase, let the AI loop handle the answer
+    if (guidedProtocol.phase === "question") {
+      return false;
+    }
+
+    const lowerText = text.toLowerCase().trim();
+    const detectedType = detectEmergencyFromSpeech(lowerText);
+
+    // If user describes a completely different emergency, reset and let AI handle it
+    if (
+      detectedType !== "unknown" &&
+      detectedType !== guidedProtocol.emergencyType
+    ) {
+      setGuidedProtocol(null);
+      setLastQuestion(null);
+      return false;
+    }
+
+    // ── CHECKIN PHASE ─────────────────────────────────────────────────────────
+    // We asked a patient-status question after a completed step.
+    // Resolve first — only advance if the emergency is still ongoing.
+    if (guidedProtocol.phase === "checkin") {
+      const nextStepIndex = guidedProtocol.pendingNextStepIndex ?? guidedProtocol.stepIndex;
+      const worsening =
+        /worse|getting worse|not breathing|passed out|collapsed|unconscious/.test(lowerText);
+
+      // Emergency is over — wrap up instead of continuing to next step
+      if (isEmergencyResolved(guidedProtocol.emergencyType, lowerText)) {
+        const resolvedProtocol: GuidedProtocolState = {
+          ...guidedProtocol,
+          phase: "action",
+          isComplete: true,
+          pendingNextStepIndex: undefined,
+          assistantTurns: guidedProtocol.assistantTurns + 1,
+        };
+        setGuidedProtocol(resolvedProtocol);
+        setStatus("Emergency resolved");
+        const responseText = buildResolvedSpeech(resolvedProtocol);
+        setLastResponse(responseText);
+        speak(responseText);
+        setChatHistory((prev) => [...prev, { role: "assistant", content: responseText }]);
+        return true;
+      }
+
+      // Still ongoing — advance to the next step
+      if (nextStepIndex < guidedProtocol.steps.length) {
+        const restoredPhase: GuidedProtocolState["phase"] =
+          guidedProtocol.emergencyType === "unresponsive" ? "unresponsive" : "action";
+        const nextProtocol: GuidedProtocolState = {
+          ...guidedProtocol,
+          phase: restoredPhase,
+          started: true,
+          stepIndex: nextStepIndex,
+          pendingNextStepIndex: undefined,
+          assistantTurns: guidedProtocol.assistantTurns + 1,
+        };
+        setGuidedProtocol(nextProtocol);
+        setConversationState(nextProtocol.phase);
+        setStatus(`Step ${nextStepIndex + 1} of ${nextProtocol.steps.length}`);
+        const opener = worsening ? "Understood, let us act fast. " : "Okay, still working on this. ";
+        const responseText = `${opener}${buildProtocolSpeech(nextProtocol)}`;
+        setLastResponse(responseText);
+        speak(responseText);
+        setChatHistory((prev) => [...prev, { role: "assistant", content: responseText }]);
+      } else {
+        const completedProtocol: GuidedProtocolState = {
+          ...guidedProtocol,
+          phase: "action",
+          isComplete: true,
+          pendingNextStepIndex: undefined,
+          assistantTurns: guidedProtocol.assistantTurns + 1,
+        };
+        setGuidedProtocol(completedProtocol);
+        const responseText = buildCompletionSpeech(completedProtocol);
+        setStatus("Protocol steps completed");
+        setLastResponse(responseText);
+        speak(responseText);
+        setChatHistory((prev) => [...prev, { role: "assistant", content: responseText }]);
+      }
+      return true;
+    }
+
+    // ── ACTION / UNRESPONSIVE PHASE ───────────────────────────────────────────
+
+    // Patient clearly improving during a step — check if fully resolved or just progressing
+    if (
+      /better|improving|improved|it('s| is) out|breathing now|can breathe|can talk now|bleeding stopped|stopped bleeding|burn is cooled|seizure stopped|waking up|responsive now/.test(
+        lowerText,
+      )
+    ) {
+      const updatedProtocol = {
+        ...guidedProtocol,
+        assistantTurns: guidedProtocol.assistantTurns + 1,
+      };
+
+      if (isEmergencyResolved(guidedProtocol.emergencyType, lowerText)) {
+        const resolvedProtocol: GuidedProtocolState = {
+          ...updatedProtocol,
+          phase: "action",
+          isComplete: true,
+        };
+        setGuidedProtocol(resolvedProtocol);
+        setStatus("Emergency resolved");
+        const responseText = buildResolvedSpeech(resolvedProtocol);
+        setLastResponse(responseText);
+        speak(responseText);
+        setChatHistory((prev) => [...prev, { role: "assistant", content: responseText }]);
+      } else {
+        setGuidedProtocol(updatedProtocol);
+        const responseText = `That is great progress. Keep watching them closely. ${buildProgressCheckQuestion(updatedProtocol)}`;
+        setLastResponse(responseText);
+        setStatus("Monitoring response");
+        speak(responseText);
+        setChatHistory((prev) => [...prev, { role: "assistant", content: responseText }]);
+      }
+      return true;
+    }
+
+    // User asks to repeat the current step
+    if (/repeat|again|say that again|what was that|one more time|didn't catch/.test(lowerText)) {
+      const updatedProtocol = {
+        ...guidedProtocol,
+        assistantTurns: guidedProtocol.assistantTurns + 1,
+      };
+      setGuidedProtocol(updatedProtocol);
+      const responseText = `Of course. ${buildProtocolSpeech(guidedProtocol)}`;
+      setLastResponse(responseText);
+      speak(responseText);
+      setChatHistory((prev) => [...prev, { role: "assistant", content: responseText }]);
+      return true;
+    }
+
+    // User is confused or asking for help
+    if (/what do i do|help|not sure|unclear|i don't know|i do not know|how do i/.test(lowerText)) {
+      const updatedProtocol = {
+        ...guidedProtocol,
+        assistantTurns: guidedProtocol.assistantTurns + 1,
+      };
+      setGuidedProtocol(updatedProtocol);
+      const responseText = `Let me walk you through that again. ${buildProtocolSpeech(guidedProtocol)}`;
+      setLastResponse(responseText);
+      speak(responseText);
+      setChatHistory((prev) => [...prev, { role: "assistant", content: responseText }]);
+      return true;
+    }
+
+    const advanceIntent =
+      /\bdone\b|\bdid it\b|\bcompleted\b|\bfinished\b|\bokay\b|\bok\b|\byes\b|\bnext\b|\bwhat('?s| is) next\b|\bgot it\b|\balright\b|\bready\b/.test(
+        lowerText,
+      );
+    const worsenIntent =
+      /still|not working|didn't work|did not work|worse|getting worse|no change|isn't working|is not working|still choking|still bleeding|still seizing|still having/.test(
+        lowerText,
+      );
+
+    if (advanceIntent) {
+      const nextStepIndex = guidedProtocol.stepIndex + 1;
+      if (nextStepIndex < guidedProtocol.steps.length) {
+        // Enter checkin phase: ask patient status FIRST, then wait for reply before giving next step
+        const checkinProtocol = {
+          ...guidedProtocol,
+          phase: "checkin" as const,
+          pendingNextStepIndex: nextStepIndex,
+          assistantTurns: guidedProtocol.assistantTurns + 1,
+        };
+        setGuidedProtocol(checkinProtocol);
+        setStatus("Checking patient status...");
+        const responseText = `Good work. ${buildProgressCheckQuestion(guidedProtocol)}`;
+        setLastResponse(responseText);
+        speak(responseText);
+        setChatHistory((prev) => [...prev, { role: "assistant", content: responseText }]);
+      } else {
+        // All steps done — wrap up
+        const completedProtocol = {
+          ...guidedProtocol,
+          isComplete: true,
+          assistantTurns: guidedProtocol.assistantTurns + 1,
+        };
+        setGuidedProtocol(completedProtocol);
+        const responseText = buildCompletionSpeech(completedProtocol);
+        setStatus("Protocol steps completed");
+        setLastResponse(responseText);
+        speak(responseText);
+        setChatHistory((prev) => [...prev, { role: "assistant", content: responseText }]);
+      }
+      return true;
+    }
+
+    if (worsenIntent) {
+      const nextStepIndex = guidedProtocol.stepIndex + 1;
+      if (nextStepIndex < guidedProtocol.steps.length) {
+        // Worsening skips check-in and escalates immediately
+        const nextProtocol = {
+          ...guidedProtocol,
+          started: true,
+          stepIndex: nextStepIndex,
+          assistantTurns: guidedProtocol.assistantTurns + 1,
+        };
+        setGuidedProtocol(nextProtocol);
+        setStatus(`Escalating — step ${nextStepIndex + 1}`);
+        const responseText = `Understood, let us escalate. ${buildProtocolSpeech(nextProtocol)}`;
+        setLastResponse(responseText);
+        speak(responseText);
+        setChatHistory((prev) => [...prev, { role: "assistant", content: responseText }]);
+      } else {
+        const completedProtocol = {
+          ...guidedProtocol,
+          isComplete: true,
+          assistantTurns: guidedProtocol.assistantTurns + 1,
+        };
+        setGuidedProtocol(completedProtocol);
+        const responseText = `I have walked you through everything I have for this situation. If conditions are worsening, call emergency services immediately if you have not already. ${buildProgressCheckQuestion(completedProtocol)}`;
+        setStatus("Awaiting EMS");
+        setLastResponse(responseText);
+        speak(responseText);
+        setChatHistory((prev) => [...prev, { role: "assistant", content: responseText }]);
+      }
+      return true;
+    }
+
+    // Generic — stay present and check in on patient
+    const updatedProtocol = {
+      ...guidedProtocol,
+      assistantTurns: guidedProtocol.assistantTurns + 1,
+    };
+    setGuidedProtocol(updatedProtocol);
+    const responseText = guidedProtocol.isComplete
+      ? buildProgressCheckQuestion(updatedProtocol)
+      : `I am right here with you. ${buildProgressCheckQuestion(updatedProtocol)}`;
+    setLastResponse(responseText);
+    setStatus("Awaiting update");
+    speak(responseText);
+    setChatHistory((prev) => [...prev, { role: "assistant", content: responseText }]);
+    return true;
+  };
+
   useEffect(() => {
     if (isActive) {
       startLiveMode();
@@ -408,6 +922,8 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
 
   const stopLiveMode = () => {
     speakRequestIdRef.current += 1;
+    assistantSpeakingRef.current = false;
+    setGuidedProtocol(null);
     if (recognitionRef.current) {
       recognitionRef.current.onend = null;
       try {
@@ -475,7 +991,7 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
     recognition.onresult = (event: any) => {
       const transcript = event.results[event.results.length - 1][0].transcript;
       console.log("Heard:", transcript);
-      handleUserSpeech(transcript);
+      handleUserSpeechRef.current(transcript);
     };
 
     recognition.onerror = (event: any) => {
@@ -498,13 +1014,14 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
       isStartedRef.current = false;
 
       // Only restart if we're still active and the mic is supposed to be on
-      if (isMicOnRef.current && isActiveRef.current) {
+      if (isMicOnRef.current && isActiveRef.current && !assistantSpeakingRef.current) {
         // Small delay to prevent rapid restart loops
         setTimeout(() => {
           if (
             isMicOnRef.current &&
             isActiveRef.current &&
-            !isStartedRef.current
+            !isStartedRef.current &&
+            !assistantSpeakingRef.current
           ) {
             try {
               recognition.start();
@@ -589,10 +1106,20 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
       triggerHaptic("warning");
     }
 
+    if (handleGuidedProtocolFeedback(text)) {
+      return;
+    }
+
     if (lowerText.length > 0) {
       performAILoop(text);
     }
   };
+
+  // Keep the ref pointing to the latest handleUserSpeech so the speech
+  // recognition callback (set up once) always calls the current closure.
+  useEffect(() => {
+    handleUserSpeechRef.current = handleUserSpeech;
+  });
 
   const captureFrame = () => {
     if (
@@ -773,7 +1300,6 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
           setArHuman(null);
         }
 
-        // Conversational Logic
         let responseText = "";
         const rawNextQuestion =
           result.nextQuestion === "null" || result.nextQuestion === "Null"
@@ -790,24 +1316,63 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
             .trim()
             .replace(/[.?!]$/, "") || "";
 
+        const nextProtocol: GuidedProtocolState = {
+          diagnosis: result.diagnosis || diagnosis,
+          emergencyLabel: result.emergencyLabel || activeEmergencyLabel,
+          emergencyType: result.emergencyType || activeEmergencyType,
+          phase:
+            result.phase === "question" ||
+            result.phase === "action" ||
+            result.phase === "unresponsive"
+              ? result.phase
+              : "action",
+          question: rawNextQuestion || undefined,
+          started: false,
+          stepIndex: 0,
+          steps: result.steps || [],
+          assistantTurns:
+            guidedProtocol &&
+            guidedProtocol.emergencyType ===
+              (result.emergencyType || activeEmergencyType)
+              ? guidedProtocol.assistantTurns
+              : 0,
+          minAssistantTurns: 10,
+          isComplete: false,
+        };
+
         if (
           rawNextQuestion &&
-          result.phase === "question" &&
+          nextProtocol.phase === "question" &&
           normalizedNext !== normalizedLast
         ) {
+          const updatedProtocol = {
+            ...nextProtocol,
+            assistantTurns: nextProtocol.assistantTurns + 1,
+          };
           responseText = rawNextQuestion;
+          setGuidedProtocol(updatedProtocol);
           setLastQuestion(rawNextQuestion);
-        } else if (result.steps && result.steps.length > 0) {
-          const combinedSteps = result.steps.join(". ");
-          if (combinedSteps !== lastResponse) {
-            responseText = result.steps.join(". ");
-            setLastQuestion(null);
-          }
+        } else if (rawNextQuestion && nextProtocol.phase === "question" && userQuery) {
+          const updatedProtocol = {
+            ...nextProtocol,
+            assistantTurns: nextProtocol.assistantTurns + 1,
+          };
+          responseText = `I still need to know: ${rawNextQuestion}`;
+          setGuidedProtocol(updatedProtocol);
+          setLastQuestion(rawNextQuestion);
+        } else if (nextProtocol.steps.length > 0) {
+          const updatedProtocol = {
+            ...nextProtocol,
+            started: true,
+            assistantTurns: nextProtocol.assistantTurns + 1,
+          };
+          setGuidedProtocol(updatedProtocol);
+          setLastQuestion(null);
+          responseText = buildProtocolSpeech(updatedProtocol, { intro: true });
         }
 
         if (responseText) {
           setLastResponse(responseText);
-          // Don't await speak to keep the loop moving faster, but handle concurrency
           speak(responseText);
           triggerHaptic("info");
           setChatHistory((prev) => [
@@ -897,6 +1462,7 @@ export const LiveInterface: React.FC<LiveInterfaceProps> = ({ onClose }) => {
                 setActiveEmergencyLabel("Emergency Intake");
                 setDiagnosis("");
                 setLastResponse("");
+                setGuidedProtocol(null);
                 setIsActive(true);
                 // Prime speech synthesis with a silent utterance
                 try {

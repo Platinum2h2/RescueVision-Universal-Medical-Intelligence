@@ -622,7 +622,9 @@ function detectEmergencyType(combinedContext: string): EmergencyType {
 function selectDeterministicChokingResponse(
   combinedContext: string,
   alreadyAskedQuestion: boolean,
+  userSpeech: string,
 ): LiveEmergencyResponse {
+  const normalizedSpeech = normalizeText(userSpeech);
   const mentionsChoking =
     /chok|airway|something stuck|food stuck|can't breathe|cannot breathe|not breathing right|throat/.test(
       combinedContext,
@@ -644,11 +646,36 @@ function selectDeterministicChokingResponse(
     return buildUnresponsiveResponse();
   }
 
+  if (alreadyAskedQuestion) {
+    if (
+      /\byes\b/.test(normalizedSpeech) &&
+      !/\bno\b|cannot|can't|not able|silent|blue/.test(normalizedSpeech)
+    ) {
+      return buildConsciousPartialResponse();
+    }
+
+    if (
+      /\bno\b|cannot|can't|not able|silent|blue|worse|not working/.test(
+        normalizedSpeech,
+      )
+    ) {
+      return buildConsciousSevereResponse();
+    }
+  }
+
   if (suggestsPartial) {
     return buildConsciousPartialResponse();
   }
 
-  if (suggestsSevere || mentionsChoking || alreadyAskedQuestion) {
+  if (suggestsSevere) {
+    return buildConsciousSevereResponse();
+  }
+
+  if (mentionsChoking) {
+    return buildClarifyingQuestionResponse(alreadyAskedQuestion);
+  }
+
+  if (alreadyAskedQuestion) {
     return buildConsciousSevereResponse();
   }
 
@@ -826,6 +853,7 @@ export async function analyzeLiveFrame(
       response = selectDeterministicChokingResponse(
         combinedContext,
         alreadyAskedQuestion,
+        userSpeech,
       );
       break;
     case "bleeding":

@@ -127,8 +127,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-emerald-500/30 flex justify-center overflow-hidden">
-      <div className="w-full max-w-md relative bg-black shadow-2xl shadow-emerald-500/5">
+    <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30 overflow-hidden">
+      <div className="w-full relative bg-black">
         <AnimatePresence>
           {showDisclaimer && (
             <motion.div
@@ -201,7 +201,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="h-full flex flex-col items-center justify-center p-8 text-center overflow-y-auto no-scrollbar"
+              className="h-screen flex flex-col items-center justify-center px-6 py-4 text-center overflow-hidden"
             >
               {/* Live Benchmark Modal */}
               <AnimatePresence>
@@ -397,58 +397,48 @@ export default function App() {
                   </motion.div>
                 )}
               </AnimatePresence>
-              <div className="relative mb-12">
+              {/* Logo */}
+              <div className="relative mb-3">
                 <motion.div
                   animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.5, 0.2] }}
                   transition={{ duration: 3, repeat: Infinity }}
-                  className="absolute inset-0 bg-emerald-500/30 blur-[100px] rounded-full"
+                  className="absolute inset-0 bg-emerald-500/30 blur-[60px] rounded-full"
                 />
-                <div className="relative z-10 w-32 h-32 flex items-center justify-center">
+                <div className="relative z-10 w-14 h-14 flex items-center justify-center">
                   <Shield
-                    className="w-24 h-24 text-emerald-500 absolute"
+                    className="w-10 h-10 text-emerald-500 absolute"
                     strokeWidth={0.5}
                   />
                   <motion.div
                     animate={{ rotate: 360 }}
-                    transition={{
-                      duration: 20,
-                      repeat: Infinity,
-                      ease: "linear",
-                    }}
+                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
                     className="w-full h-full border border-emerald-500/20 border-dashed rounded-full"
                   />
                 </div>
               </div>
 
-              <h1 className="text-5xl md:text-8xl font-light tracking-tighter mb-6">
+              <h1 className="text-4xl md:text-5xl font-light tracking-tighter mb-2">
                 Rescue
-                <span className="text-emerald-500 font-medium italic">
-                  Vision
-                </span>
+                <span className="text-emerald-500 font-medium italic">Vision</span>
               </h1>
 
-              <p className="max-w-xl text-white/40 text-sm md:text-lg leading-relaxed mb-12 font-light">
+              <p className="max-w-lg text-white/40 text-xs md:text-sm leading-relaxed mb-5 font-light">
                 The world's first{" "}
-                <span className="text-white">
-                  Universal Medical Intelligence
-                </span>
-                . Powered by the Procedural Fidelity Scanning Network for
-                clinical-grade precision.
+                <span className="text-white">Universal Medical Intelligence</span>.
+                Powered by the Procedural Fidelity Scanning Network for clinical-grade precision.
               </p>
 
-              <div className="flex flex-col gap-4 w-full max-w-md">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2 w-full max-w-2xl mx-auto">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={handleStart}
-                    className="group relative px-6 py-8 bg-white/5 border border-white/10 text-white font-bold uppercase tracking-[0.2em] text-[10px] rounded-3xl overflow-hidden transition-all hover:scale-105 active:scale-95 hover:bg-white/10"
+                    className="group relative px-4 py-5 bg-white/5 border border-white/10 text-white font-bold uppercase tracking-[0.2em] text-[10px] rounded-2xl overflow-hidden transition-all hover:scale-105 active:scale-95 hover:bg-white/10"
                   >
-                    <span className="relative z-10 flex flex-col items-center gap-3">
-                      <Shield className="w-6 h-6 text-emerald-500" />
+                    <span className="relative z-10 flex flex-col items-center gap-2">
+                      <Shield className="w-5 h-5 text-emerald-500" />
                       <div className="flex flex-col">
                         <span>Emergency Scan</span>
-                        <span className="text-[7px] opacity-40 font-normal">
-                          Step-by-Step Mode
-                        </span>
+                        <span className="text-[7px] opacity-40 font-normal">Step-by-Step Mode</span>
                       </div>
                     </span>
                   </button>
@@ -459,15 +449,13 @@ export default function App() {
                       (window as any).isRadiologyTraining = false;
                       setShowLiveMode(true);
                     }}
-                    className="group relative px-6 py-8 bg-white/5 border border-white/10 text-white font-bold uppercase tracking-[0.2em] text-[10px] rounded-3xl overflow-hidden transition-all hover:scale-105 active:scale-95 hover:bg-white/10"
+                    className="group relative px-4 py-5 bg-white/5 border border-white/10 text-white font-bold uppercase tracking-[0.2em] text-[10px] rounded-2xl overflow-hidden transition-all hover:scale-105 active:scale-95 hover:bg-white/10"
                   >
-                    <span className="relative z-10 flex flex-col items-center gap-3">
-                      <Activity className="w-6 h-6 text-blue-500" />
+                    <span className="relative z-10 flex flex-col items-center gap-2">
+                      <Activity className="w-5 h-5 text-blue-500" />
                       <div className="flex flex-col">
                         <span>Universal Live</span>
-                        <span className="text-[7px] opacity-40 font-normal">
-                          Real-Time Response
-                        </span>
+                        <span className="text-[7px] opacity-40 font-normal">Real-Time Response</span>
                       </div>
                     </span>
                   </button>
@@ -478,15 +466,13 @@ export default function App() {
                       (window as any).isRadiologyTraining = true;
                       setShowLiveMode(true);
                     }}
-                    className="group relative px-6 py-8 bg-blue-600/20 border border-blue-500/30 text-white font-bold uppercase tracking-[0.2em] text-[10px] rounded-3xl overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(37,99,235,0.1)]"
+                    className="group relative px-4 py-5 bg-blue-600/20 border border-blue-500/30 text-white font-bold uppercase tracking-[0.2em] text-[10px] rounded-2xl overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(37,99,235,0.1)]"
                   >
-                    <span className="relative z-10 flex flex-col items-center gap-3">
-                      <BarChart3 className="w-6 h-6 text-blue-400" />
+                    <span className="relative z-10 flex flex-col items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-blue-400" />
                       <div className="flex flex-col">
                         <span>Radiology Trainer</span>
-                        <span className="text-[7px] opacity-60 font-normal">
-                          Interactive Workflow
-                        </span>
+                        <span className="text-[7px] opacity-60 font-normal">Interactive Workflow</span>
                       </div>
                     </span>
                   </button>
@@ -497,81 +483,64 @@ export default function App() {
                       (window as any).isRadiologyTraining = false;
                       setShowLiveMode(true);
                     }}
-                    className="group relative px-6 py-8 bg-emerald-600/20 border border-emerald-500/30 text-white font-bold uppercase tracking-[0.2em] text-[10px] rounded-3xl overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(5,150,105,0.1)]"
+                    className="group relative px-4 py-5 bg-emerald-600/20 border border-emerald-500/30 text-white font-bold uppercase tracking-[0.2em] text-[10px] rounded-2xl overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(5,150,105,0.1)]"
                   >
-                    <span className="relative z-10 flex flex-col items-center gap-3">
-                      <Camera className="w-6 h-6 text-emerald-400" />
+                    <span className="relative z-10 flex flex-col items-center gap-2">
+                      <Camera className="w-5 h-5 text-emerald-400" />
                       <div className="flex flex-col">
                         <span>Radiology Live</span>
-                        <span className="text-[7px] opacity-60 font-normal">
-                          Diagnostic Workflow
-                        </span>
+                        <span className="text-[7px] opacity-60 font-normal">Diagnostic Workflow</span>
                       </div>
                     </span>
                   </button>
                 </div>
 
-                <div className="h-px bg-white/5 my-4" />
+                <div className="h-px bg-white/5 my-1" />
 
-                <div className="flex flex-col gap-3">
-                  <label className="cursor-pointer px-12 py-4 bg-white/5 border border-white/10 text-white/40 font-mono uppercase tracking-[0.2em] text-[9px] rounded-2xl hover:bg-white/10 transition-colors text-center">
+                <div className="flex flex-col gap-2">
+                  <label className="cursor-pointer px-6 py-3 bg-white/5 border border-white/10 text-white/40 font-mono uppercase tracking-[0.2em] text-[9px] rounded-xl hover:bg-white/10 transition-colors text-center">
                     Upload Medical Imaging File
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                    />
+                    <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
                   </label>
 
                   <button
                     onClick={() => setShowResearchData(true)}
-                    className="px-12 py-5 bg-emerald-500 text-black font-bold uppercase tracking-[0.2em] text-[10px] rounded-2xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(16,185,129,0.2)]"
+                    className="px-6 py-3 bg-emerald-500 text-black font-bold uppercase tracking-[0.2em] text-[10px] rounded-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 shadow-[0_0_40px_rgba(16,185,129,0.2)]"
                   >
-                    <Database className="w-4 h-4" />
+                    <Database className="w-3.5 h-3.5" />
                     Experimental Validation Button
                   </button>
 
                   <button
                     onClick={() => setShowLiveBenchmark(true)}
-                    className="px-12 py-5 bg-purple-600 text-white font-bold uppercase tracking-[0.2em] text-[10px] rounded-2xl hover:bg-purple-500 transition-all flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(147,51,234,0.2)]"
+                    className="px-6 py-3 bg-purple-600 text-white font-bold uppercase tracking-[0.2em] text-[10px] rounded-xl hover:bg-purple-500 transition-all flex items-center justify-center gap-2 shadow-[0_0_40px_rgba(147,51,234,0.2)]"
                   >
-                    <Activity className="w-4 h-4" />
+                    <Activity className="w-3.5 h-3.5" />
                     Live Performance Test (p-value)
                   </button>
                 </div>
               </div>
 
-              <div className="mt-24 grid grid-cols-5 gap-8 opacity-20">
-                <div className="flex flex-col items-center gap-2">
-                  <Activity className="w-5 h-5" />
-                  <span className="text-[10px] uppercase tracking-widest font-mono">
-                    CLINICAL_DIAG
-                  </span>
+              <div className="mt-5 grid grid-cols-5 gap-4 opacity-20">
+                <div className="flex flex-col items-center gap-1">
+                  <Activity className="w-4 h-4" />
+                  <span className="text-[8px] uppercase tracking-widest font-mono">CLINICAL_DIAG</span>
                 </div>
-                <div className="flex flex-col items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  <span className="text-[10px] uppercase tracking-widest font-mono">
-                    SURGICAL_NAV
-                  </span>
+                <div className="flex flex-col items-center gap-1">
+                  <Users className="w-4 h-4" />
+                  <span className="text-[8px] uppercase tracking-widest font-mono">SURGICAL_NAV</span>
                 </div>
-                <div className="flex flex-col items-center gap-2">
-                  <Shield className="w-5 h-5" />
-                  <span className="text-[10px] uppercase tracking-widest font-mono">
-                    LAB_ANALYTICS
-                  </span>
+                <div className="flex flex-col items-center gap-1">
+                  <Shield className="w-4 h-4" />
+                  <span className="text-[8px] uppercase tracking-widest font-mono">LAB_ANALYTICS</span>
                 </div>
-                <div className="flex flex-col items-center gap-2">
-                  <AlertCircle className="w-5 h-5" />
-                  <span className="text-[10px] uppercase tracking-widest font-mono">
-                    BIOMED_ENG
-                  </span>
+                <div className="flex flex-col items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-[8px] uppercase tracking-widest font-mono">BIOMED_ENG</span>
                 </div>
-                <div className="flex flex-col items-center gap-2">
-                  <Camera className="w-5 h-5" />
-                  <span className="text-[10px] uppercase tracking-widest font-mono">
-                    RADIOLOGY_AI
-                  </span>
+                <div className="flex flex-col items-center gap-1">
+                  <Camera className="w-4 h-4" />
+                  <span className="text-[8px] uppercase tracking-widest font-mono">RADIOLOGY_AI</span>
                 </div>
               </div>
             </motion.div>
