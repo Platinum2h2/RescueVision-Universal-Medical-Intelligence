@@ -81,7 +81,7 @@ async function runLargeBenchmark() {
 
       const result = JSON.parse(response.text);
       results.push(result.confidence);
-      process.stdout.write(".");
+      process.stdout.write("."); // Progress indicator
     } catch (error) {
       console.error(`\nTest Case ${i+1} Failed:`, error.message);
     }
